@@ -1,9 +1,10 @@
 """
 NLP Module for DIDI Platform
-Provides quantitative metrics and discrete emotion analysis.
+Provides quantitative metrics, discrete emotion analysis, and Moral Foundations scoring.
 """
 
 from .lexical import LexicalAnalyzer
 from .emotions import NRCEmotionAnalyzer
+from .morality import MoralFoundationsAnalyzer
 
-__all__ = ["LexicalAnalyzer", "NRCEmotionAnalyzer"]
+__all__ = ["LexicalAnalyzer", "NRCEmotionAnalyzer", "MoralFoundationsAnalyzer"]

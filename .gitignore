@@ -10,10 +10,13 @@ venv/
 ENV/
 
 # Data Files & Databases
+*.db
 *.db-shm
 *.db-wal
 data/raw/
+data/processed/*.db
 *.db-journal
+assets/
 
 # IDEs & OS
 .DS_Store

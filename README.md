@@ -10,25 +10,27 @@
 ## 1. Project Overview
 The **DIDI Platform** is a full-stack computational research workbench designed to bridge **qualitative media discourse analysis** (the standard social science method) with **quantitative NLP metrics** (lexical diversity, discrete emotion mining, sentiment valence) and **Agentic RAG**.
 
-It investigates how political discourse, minority rights, language policy, and regional autonomy in South Tyrol are framed across three linguistic communities:
-1. **German:** *Die Neue Südtiroler Tageszeitung* (`tageszeitung.it`)
-2. **Bilingual (German / Italian):** *Salto.bz* (`salto.bz`)
-3. **Ladin (Gardenese / Badioto):** *La Usc di Ladins* (`lausc.it`)
+It investigates how political discourse, minority rights, language policy, and regional autonomy in South Tyrol and the Dolomitic Ladin valleys are framed across three linguistic communities and five varieties:
+1. **German (`de`):** *Die Neue Südtiroler Tageszeitung* (`tageszeitung.it`) & *Salto.bz* (`salto.bz/de`)
+2. **Italian (`it`):** *Salto.bz* (`salto.bz/it`)
+3. **Ladin (`lld_gherd`, `lld_badia`, `lld_fascia`):** *La Usc di Ladins* (`lausc.it`) & *RaiNews TGR TRAIL* (`rainews.it/tgr/trail`)
 
 ---
 
 ## 2. Harmonized Trilingual Corpus
 
-The local repository is pre-loaded with an initial harmonized slice of **1,251 articles** spanning **291,371 words**:
+The platform harmonizes **12,624 articles** spanning **2,765,436 words** (2017–2026):
 
 | Outlet / Source | Language | Variety / Dialect | Articles | Word Count |
-| :--- | :--- | :--- | :--- | :--- |
-| **La Usc di Ladins** | Ladin | `lld_badia` | 412 | 87,419 |
-| **La Usc di Ladins** | Ladin | `lld_gherd` | 588 | 92,544 |
-| **Salto.bz** | German | `de` | 60 | 32,845 |
-| **Salto.bz** | Italian | `it` | 60 | 26,637 |
+| :--- | :--- | :--- | ---: | ---: |
+| **RaiNews TGR TRAIL** | Ladin | `lld_gherd` / `lld_badia` / `lld_fascia` | 6,278 | 1,246,407 |
+| **La Usc di Ladins** | Ladin | `lld_gherd` / `lld_badia` | 5,084 | 915,210 |
+| **Salto.bz** | German | `de` | 741 | 382,114 |
+| **Salto.bz** | Italian | `it` | 390 | 169,779 |
 | **Die Neue Südtiroler Tageszeitung** | German | `de` | 131 | 51,926 |
-| **Total** | *Trilingual* | *All varieties* | **1,251** | **291,371** |
+| **Total** | *Trilingual* | *5 varieties (`de`, `it`, `lld_gherd`, `lld_badia`, `lld_fascia`)* | **12,624** | **2,765,436** |
+
+> **Language/Dialect Breakdown:** `lld_gherd` (5,965 articles), `lld_badia` (3,880 articles), `lld_fascia` (1,517 articles), `de` (872 articles), `it` (390 articles).
 
 ---
 
@@ -61,7 +63,7 @@ Raw Sources (Tageszeitung, Salto, La Usc)
 
 ## 4. Quantitative NLP Engine (`src/nlp/`)
 
-Every ingested article is automatically profiled along two core linguistic dimensions:
+Every ingested article is automatically profiled along three core linguistic and psycholinguistic dimensions:
 1. **Lexical & Syntactic Diversity (`src/nlp/lexical.py`)**:
    - Type-Token Ratio (TTR), Guiraud's Root TTR ($V / \sqrt{N}$), Herdan's $C$ ($\log V / \log N$).
    - Hapax legomena count and ratio.
@@ -70,6 +72,11 @@ Every ingested article is automatically profiled along two core linguistic dimen
    - Integrates the multilingual **NRC Emotion Lexicon** (German & Italian).
    - Plutchik's 8 basic emotions: *Anger, Anticipation, Disgust, Fear, Joy, Sadness, Surprise, Trust*.
    - Net Sentiment Polarity ($[-1.0, +1.0]$) and emotional token density per 1,000 words.
+3. **Multilingual Moral Foundations Analysis (`src/nlp/morality.py`)**:
+   - Scores the 5 Moral Foundations (**Care/Harm**, **Fairness/Cheating**, **Loyalty/Betrayal**, **Authority/Subversion**, **Sanctity/Degradation**) across all 10 virtue/vice poles, overall `moral_density` (per 1,000 words), and `moral_valence` ($[-1.0, +1.0]$).
+   - **Stanza `(lemma, upos)` Disambiguation (`scripts/build_mfd_lexicons.py`):** Merges Husson & Palma (2025, *Political Psychology*) with Simonsen & Widmann (2023) `mMPD_de` for German (2,876 cleaned content lemmas + nominal compound-head decomposition) and Rizzoli et al. (2026) `it-MFD` for Italian (2,619 cleaned content lemmas), eliminating function-word and auxiliary homograph collisions (e.g., IT `dei`/`stato`, DE `würde`/`bleiben`).
+   - **Ladin Projection (`lld_gherd`, `lld_badia`, `lld_fascia`):** Triangulates `IT ∩ DE` across the *Dicziunari dl Ladin Standard* (`dls_dictionary.db`) and validated legal/civic terminology from **Eurac BISTRO** (`bistro.jsonl`), paired with a 17,346-form inflectional lookup table built from Forni's Gherdëina dictionary (`ladin_dictionary.db`) and `apertium-lld` until the native Ladin Stanza lemmatizer is released.
+   - **Parallel Corpus Validation (`scripts/validate_mfd_parallel.py`):** Cross-lingually validated on BISTRO's aligned legal context sentences and the University of Innsbruck (`sfrontull/*`) Ladin-Italian parallel corpora following Husson & Palma's (2025) correlation ($r$) and mean-difference ($\Delta\mu$) protocol.
 
 ---
 
@@ -82,23 +89,29 @@ cd didi-platform
 pip install -r requirements.txt
 ```
 
-### Run Harmonization & NLP Enrichment
-Populates the SQLite FTS5 database and outputs `data/processed/didi_corpus.jsonl`:
+### Build Unified MFD Lexicons & Run Harmonization
 ```bash
+# 1. Compile Stanza-lemmatized DE/IT/LLD Moral Foundations lexicons (requires local assets/)
+python scripts/build_mfd_lexicons.py
+
+# 2. Harmonize full trilingual corpus into SQLite FTS5 + export metadata JSONL
 python scripts/run_harmonization.py
+
+# 3. Validate MFD across BISTRO and Hugging Face Ladin-Italian parallel corpora
+python scripts/validate_mfd_parallel.py
 ```
 
 ### Interactive Research CLI Query
-Search across qualitative text snippets with simultaneous quantitative emotion/sentiment scores:
+Search across qualitative text snippets with simultaneous quantitative emotion and Moral Foundations scores:
 ```bash
 # General search
 python scripts/query_corpus.py "Autonomie"
 
-# Italian articles on education
-python scripts/query_corpus.py "scuola" --lang it
+# Ladin RaiNews TRAIL articles on education
+python scripts/query_corpus.py "scola" --source trail --lang lld_badia
 
-# Filter by emotional valence (negative framing only)
-python scripts/query_corpus.py "Krise" --max-sentiment -0.2
+# Filter by emotional valence or moral density
+python scripts/query_corpus.py "Krise" --max-sentiment -0.2 --min-moral 10.0
 ```
 
 ### Run LocalStack AWS Pipeline ($0 Emulation)
@@ -113,5 +126,12 @@ docker-compose up -d localstack
 
 ---
 
-## 6. License & Data Governance
-Internal research code and metadata harmonized under Eurac Research data governance protocols for scientific and academic analysis.
+## 6. Data Availability, Copyright & Dual-Remote Governance
+
+To comply with publisher copyright and third-party lexicon licenses while ensuring scientific reproducibility, this project separates **public code & derived metrics** from **restricted full-text & lexical assets**:
+
+- **Public GitHub Repository (`origin` — [`github.com/lucaducceschi/didi-platform`](https://github.com/lucaducceschi/didi-platform)):**
+  - Contains the complete software architecture, harmonization/NLP pipelines, Stanza lexicon compiler, parallel validation suite, and [`data/processed/didi_corpus.jsonl`](data/processed/didi_corpus.jsonl) (**12,624 harmonized records** with article URLs, dates, categories, lexical diversity, NRC emotion densities, and Moral Foundations scores, with `full_text` omitted).
+  - Excludes copyrighted full-text newspaper bodies (`data/raw/`, `*.db`) and third-party dictionary files (`assets/`) via [`.gitignore`](.gitignore).
+- **Private Institutional Mirror (`gitlab` — `gitlab.inf.unibz.it/Luca.Ducceschi/didi-platform`):**
+  - Restricted private repository containing the full research environment, including `assets/` (`MFD_Fr_Ge_Sp_It.Rmd`, `mMPD_de.yml`, `it-MFD.dicx`, `mfd_compiled_lemmas.json`, and `parallel_validation/`) alongside full corpus snapshots under Eurac Research / unibz academic data governance.

@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from ..models.schema import DIDIArticle
 from ..nlp.lexical import LexicalAnalyzer
 from ..nlp.emotions import NRCEmotionAnalyzer
+from ..nlp.morality import MoralFoundationsAnalyzer
 
 logger = logging.getLogger("DIDICorpusDB")
 
@@ -81,10 +82,40 @@ class DIDICorpusDB:
                     surprise_density REAL,
                     trust_density REAL,
                     emotional_density REAL,
+                    care_density REAL DEFAULT 0.0,
+                    fairness_density REAL DEFAULT 0.0,
+                    loyalty_density REAL DEFAULT 0.0,
+                    authority_density REAL DEFAULT 0.0,
+                    sanctity_density REAL DEFAULT 0.0,
+                    care_virtue_density REAL DEFAULT 0.0,
+                    care_vice_density REAL DEFAULT 0.0,
+                    fairness_virtue_density REAL DEFAULT 0.0,
+                    fairness_vice_density REAL DEFAULT 0.0,
+                    loyalty_virtue_density REAL DEFAULT 0.0,
+                    loyalty_vice_density REAL DEFAULT 0.0,
+                    authority_virtue_density REAL DEFAULT 0.0,
+                    authority_vice_density REAL DEFAULT 0.0,
+                    sanctity_virtue_density REAL DEFAULT 0.0,
+                    sanctity_vice_density REAL DEFAULT 0.0,
+                    moral_density REAL DEFAULT 0.0,
+                    moral_valence REAL DEFAULT 0.0,
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE
                 )
             """)
+
+            # Migration: Ensure Moral Foundations columns exist on existing DBs
+            cur.execute("PRAGMA table_info(article_nlp_metrics)")
+            nlp_cols = {row["name"] for row in cur.fetchall()}
+            mfd_cols = [
+                "care_density", "fairness_density", "loyalty_density", "authority_density", "sanctity_density",
+                "care_virtue_density", "care_vice_density", "fairness_virtue_density", "fairness_vice_density",
+                "loyalty_virtue_density", "loyalty_vice_density", "authority_virtue_density", "authority_vice_density",
+                "sanctity_virtue_density", "sanctity_vice_density", "moral_density", "moral_valence",
+            ]
+            for col in mfd_cols:
+                if col not in nlp_cols:
+                    cur.execute(f"ALTER TABLE article_nlp_metrics ADD COLUMN {col} REAL DEFAULT 0.0")
 
             # Indices on core filtering dimensions
             cur.execute("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source)")
@@ -183,19 +214,23 @@ class DIDICorpusDB:
             conn.commit()
         return inserted
 
-    def enrich_nlp_metrics(self, limit: Optional[int] = None) -> int:
-        """Compute and store quantitative lexical and emotional metrics for unindexed articles."""
+    def enrich_nlp_metrics(self, limit: Optional[int] = None, force: bool = False) -> int:
+        """Compute and store quantitative lexical, emotional, and Moral Foundations metrics."""
         lex_analyzer = LexicalAnalyzer()
         emo_analyzer = NRCEmotionAnalyzer()
+        mfd_analyzer = MoralFoundationsAnalyzer(use_stanza=False)
 
         with self._get_connection() as conn:
             cur = conn.cursor()
-            query = """
-                SELECT a.id, a.language, a.full_text
-                FROM articles a
-                LEFT JOIN article_nlp_metrics m ON a.id = m.article_id
-                WHERE m.article_id IS NULL
-            """
+            if force:
+                query = "SELECT id, language, full_text FROM articles WHERE length(trim(full_text)) > 0"
+            else:
+                query = """
+                    SELECT a.id, a.language, a.full_text
+                    FROM articles a
+                    LEFT JOIN article_nlp_metrics m ON a.id = m.article_id
+                    WHERE (m.article_id IS NULL OR m.moral_density IS NULL) AND length(trim(a.full_text)) > 0
+                """
             if limit:
                 query += f" LIMIT {int(limit)}"
             cur.execute(query)
@@ -210,6 +245,7 @@ class DIDICorpusDB:
                 art_id, lang, text = row["id"], row["language"], row["full_text"]
                 lex = lex_analyzer.analyze(text)
                 emo = emo_analyzer.analyze(text, lang)
+                mfd = mfd_analyzer.analyze(text, lang)
 
                 cur.execute("""
                     INSERT OR REPLACE INTO article_nlp_metrics (
@@ -218,8 +254,13 @@ class DIDICorpusDB:
                         net_sentiment, positive_density, negative_density,
                         anger_density, anticipation_density, disgust_density,
                         fear_density, joy_density, sadness_density, surprise_density,
-                        trust_density, emotional_density, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        trust_density, emotional_density,
+                        care_density, fairness_density, loyalty_density, authority_density, sanctity_density,
+                        care_virtue_density, care_vice_density, fairness_virtue_density, fairness_vice_density,
+                        loyalty_virtue_density, loyalty_vice_density, authority_virtue_density, authority_vice_density,
+                        sanctity_virtue_density, sanctity_vice_density, moral_density, moral_valence,
+                        updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     art_id,
                     lex["word_count"],
@@ -243,6 +284,23 @@ class DIDICorpusDB:
                     emo["surprise_density"],
                     emo["trust_density"],
                     emo["emotional_density"],
+                    mfd["care_density"],
+                    mfd["fairness_density"],
+                    mfd["loyalty_density"],
+                    mfd["authority_density"],
+                    mfd["sanctity_density"],
+                    mfd["care_virtue_density"],
+                    mfd["care_vice_density"],
+                    mfd["fairness_virtue_density"],
+                    mfd["fairness_vice_density"],
+                    mfd["loyalty_virtue_density"],
+                    mfd["loyalty_vice_density"],
+                    mfd["authority_virtue_density"],
+                    mfd["authority_vice_density"],
+                    mfd["sanctity_virtue_density"],
+                    mfd["sanctity_vice_density"],
+                    mfd["moral_density"],
+                    mfd["moral_valence"],
                     now
                 ))
                 processed += 1
@@ -254,6 +312,8 @@ class DIDICorpusDB:
         sql = """
             SELECT a.id, a.source, a.language, a.url, a.title, a.publish_date, a.author, a.category, a.word_count,
                    m.net_sentiment, m.ttr, m.mean_sentence_length,
+                   m.care_density, m.fairness_density, m.loyalty_density, m.authority_density, m.sanctity_density,
+                   m.moral_density, m.moral_valence,
                    snippet(articles_fts, 1, '<b>', '</b>', '...', 25) as snippet
             FROM articles_fts f
             JOIN articles a ON a.id = f.id
@@ -275,19 +335,28 @@ class DIDICorpusDB:
             cur.execute(sql, params)
             return [dict(r) for r in cur.fetchall()]
 
-    def export_to_jsonl(self, output_path: Path) -> int:
-        """Export full database to JSONL format."""
+    def export_to_jsonl(self, output_path: Path, include_full_text: bool = False) -> int:
+        """
+        Export database to JSONL format.
+        By default omits `full_text` so the exported JSONL is copyright-safe for public repositories.
+        """
         output_path.parent.mkdir(parents=True, exist_ok=True)
         count = 0
         with self._get_connection() as conn, open(output_path, "w", encoding="utf-8") as f:
             cur = conn.cursor()
             cur.execute("""
-                SELECT a.*, m.net_sentiment, m.ttr, m.root_ttr, m.anger_density, m.joy_density, m.trust_density
+                SELECT a.id, a.source, a.language, a.url, a.title, a.publish_date, a.author, a.category,
+                       a.breadcrumbs_json, a.full_text, a.word_count, a.metadata_json, a.created_at,
+                       m.net_sentiment, m.ttr, m.root_ttr, m.anger_density, m.joy_density, m.trust_density,
+                       m.care_density, m.fairness_density, m.loyalty_density, m.authority_density, m.sanctity_density,
+                       m.moral_density, m.moral_valence
                 FROM articles a
                 LEFT JOIN article_nlp_metrics m ON a.id = m.article_id
             """)
             for row in cur.fetchall():
                 d = dict(row)
+                if not include_full_text:
+                    d.pop("full_text", None)
                 if d.get("breadcrumbs_json"):
                     d["breadcrumbs"] = json.loads(d.pop("breadcrumbs_json"))
                 if d.get("metadata_json"):

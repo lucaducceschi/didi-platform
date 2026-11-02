@@ -12,8 +12,8 @@ try:
 
     class DIDIArticle(BaseModel):
         id: str
-        source: Literal["tageszeitung", "la_usc", "salto"]
-        language: str  # "de", "it", "lld", "lld_gherd", "lld_badia"
+        source: Literal["tageszeitung", "la_usc", "salto", "trail"]
+        language: str  # "de", "it", "lld", "lld_gherd", "lld_badia", "lld_fascia"
         url: str
         title: str
         publish_date: datetime

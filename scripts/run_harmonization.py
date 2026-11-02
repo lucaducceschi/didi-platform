@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
 Trilingual Corpus Harmonization & NLP Enrichment Runner for DIDI Platform.
-Harmonizes Tageszeitung (DE), Salto.bz (DE/IT), and La Usc di Ladins (LLD)
-into a unified SQLite FTS5 database and JSONL export with quantitative NLP metrics.
+Harmonizes Tageszeitung (DE), Salto.bz (DE/IT), La Usc di Ladins (LLD), and RaiNews TRAIL (LLD)
+into a unified SQLite FTS5 database and copyright-safe JSONL export with quantitative NLP metrics
+(Lexical Diversity, NRC Emotions, and Multilingual Moral Foundations).
 """
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -23,6 +25,8 @@ def main():
     print("=" * 70)
 
     db_path = PROJECT_ROOT / "data" / "processed" / "didi_corpus.db"
+    if db_path.exists():
+        db_path.unlink()
     db = DIDICorpusDB(db_path)
 
     start_time = time.time()
@@ -49,27 +53,42 @@ def main():
     else:
         print(f"\n[2/4] Salto raw directory not found: {salto_dir}")
 
-    # 3. Harmonize La Usc di Ladins (Ladin Badia / Gherdëina)
-    lausc_dir = Path(os.environ.get("LAUSC_RAW_DIR", str(Path.home() / "Gits" / "digi-rlf" / "text_corpus" / "scraping_ladino" / "json_backups")))
-    if lausc_dir.exists():
+    # 3. Harmonize Ladin Corpus (La Usc di Ladins + RaiNews TGR TRAIL, no cap)
+    ladin_master_db = Path(
+        os.environ.get(
+            "LADIN_MASTER_DB",
+            str(Path.home() / "Gits" / "digi-rlf" / "text_corpus" / "scraping_ladino" / "corpus_master.db"),
+        )
+    )
+    lausc_dir = Path(
+        os.environ.get(
+            "LAUSC_RAW_DIR",
+            str(Path.home() / "Gits" / "digi-rlf" / "text_corpus" / "scraping_ladino" / "json_backups"),
+        )
+    )
+    lausc_harmonizer = LaUscHarmonizer()
+    if ladin_master_db.exists():
+        print(f"\n[3/4] Ingesting full Ladin Master Corpus (La Usc + RaiNews TRAIL) from: {ladin_master_db}")
+        ladin_articles = lausc_harmonizer.parse_master_db(ladin_master_db, limit=None)
+        inserted_ladin = db.insert_batch(ladin_articles)
+        print(f"      -> Ingested {inserted_ladin:,} Ladin articles (no cap).")
+    elif lausc_dir.exists():
         print(f"\n[3/4] Ingesting La Usc di Ladins (LLD) from: {lausc_dir}")
-        lausc_harmonizer = LaUscHarmonizer()
-        # Ingest 1,000 articles for a deep, balanced multi-thousand corpus
-        lausc_articles = lausc_harmonizer.parse_directory(lausc_dir, limit=1000)
+        lausc_articles = lausc_harmonizer.parse_directory(lausc_dir, limit=None)
         inserted_lausc = db.insert_batch(lausc_articles)
-        print(f"      -> Ingested {inserted_lausc} La Usc articles.")
+        print(f"      -> Ingested {inserted_lausc:,} La Usc articles.")
     else:
-        print(f"\n[3/4] La Usc path not found: {lausc_dir}")
+        print(f"\n[3/4] Ladin corpus path not found: {ladin_master_db}")
 
-    # 4. Quantitative NLP Metrics Enrichment (Lexical diversity & NRC Emotions)
-    print(f"\n[4/4] Enriching Corpus with Quantitative NLP Metrics (Lexical & NRC Emotions)...")
-    enriched_count = db.enrich_nlp_metrics()
-    print(f"      -> Computed NLP profiles for {enriched_count} articles.")
+    # 4. Quantitative NLP Metrics Enrichment (Lexical, NRC Emotions, Moral Foundations)
+    print(f"\n[4/4] Enriching Corpus with Quantitative NLP Metrics (Lexical, NRC Emotions & Moral Foundations)...")
+    enriched_count = db.enrich_nlp_metrics(force=True)
+    print(f"      -> Computed NLP & Moral Foundations profiles for {enriched_count:,} articles.")
 
-    # 5. Export harmonized JSONL dataset
+    # 5. Export copyright-safe harmonized JSONL dataset (metadata + NLP scores, full_text omitted)
     jsonl_path = PROJECT_ROOT / "data" / "processed" / "didi_corpus.jsonl"
-    exported_count = db.export_to_jsonl(jsonl_path)
-    print(f"      -> Exported {exported_count} harmonized records to {jsonl_path.name}")
+    exported_count = db.export_to_jsonl(jsonl_path, include_full_text=False)
+    print(f"      -> Exported {exported_count:,} copyright-safe records to {jsonl_path.name}")
 
     elapsed = round(time.time() - start_time, 2)
 
@@ -91,17 +110,18 @@ def main():
 
     # 7. Verification Multi-Faceted Search Test
     print("\n" + "=" * 70)
-    print("  Testing Integrated Qualitative FTS5 + Quantitative NLP Search")
+    print("  Testing Integrated Qualitative FTS5 + Quantitative NLP & MFD Search")
     print("=" * 70)
     sample_queries = ["Autonomie", "Kultur", "Wahl", "scola"]
     for q in sample_queries:
         results = db.search_articles(q, limit=1)
         if results:
             r = results[0]
-            sentiment_str = f"{r['net_sentiment']:+.2f}" if r.get('net_sentiment') is not None else "N/A"
-            ttr_str = f"{r['ttr']:.3f}" if r.get('ttr') is not None else "N/A"
+            sentiment_str = f"{r['net_sentiment']:+.2f}" if r.get("net_sentiment") is not None else "N/A"
+            moral_str = f"{r['moral_density']:.1f}/1k (val {r['moral_valence']:+.2f})" if r.get("moral_density") is not None else "N/A"
+            ttr_str = f"{r['ttr']:.3f}" if r.get("ttr") is not None else "N/A"
             print(f"  Query: '{q}' -> [{r['source'].upper()} | {r['language']}] {r['title']} ({r['publish_date'][:10]})")
-            print(f"          Sentiment: {sentiment_str} | TTR: {ttr_str} | Words: {r['word_count']}")
+            print(f"          Sentiment: {sentiment_str} | Morality: {moral_str} | TTR: {ttr_str} | Words: {r['word_count']}")
             print(f"          Snippet: {r['snippet']}")
 
     print("\n" + "=" * 70)
