@@ -98,12 +98,27 @@ def get_service() -> DataService:
 def render_sidebar(service: DataService):
     st.sidebar.title("🔍 Corpus Filters")
 
+    if "query_input" not in st.session_state:
+        st.session_state["query_input"] = ""
+
     # 1. Topic Query
     query = st.sidebar.text_input(
         "FTS5 Topic Search",
-        value="",
+        key="query_input",
         placeholder="e.g. Autonomie, scuola, turism...",
         help="Search query executed via SQLite FTS5 index across German, Italian, and Ladin."
+    )
+
+    # Search Intelligence Options
+    expand_trilingual = st.sidebar.checkbox(
+        "🌐 Trilingual Concept Bridge",
+        value=True,
+        help="Expands queries across German, Italian, and Ladin (e.g. scuola -> Schule -> scola)."
+    )
+    enable_prefix = st.sidebar.checkbox(
+        "⚡ Stem / Prefix Matching (*)",
+        value=True,
+        help="Matches grammatical endings (e.g. autonom* matches Autonomie, autonomo, autonoma)."
     )
 
     # 2. Outlets
@@ -152,7 +167,9 @@ def render_sidebar(service: DataService):
         "languages": selected_langs,
         "min_sentiment": sent_range[0],
         "max_sentiment": sent_range[1],
-        "min_moral": min_moral
+        "min_moral": min_moral,
+        "expand_trilingual": expand_trilingual,
+        "enable_prefix": enable_prefix
     }
 
 
@@ -189,6 +206,24 @@ def main():
     # -------------------------------------------------------------
     with tab1:
         st.subheader("Cross-Lingual Search & Qualitative Text Snippets")
+
+        # Preset Research Inquiries
+        st.markdown("**💡 Thematic Inquiries (One-Click Trilingual Search):**")
+        p_cols = st.columns(6)
+        presets = [
+            ("🏫 Education", "scuola"),
+            ("🏛️ Autonomy", "autonomia"),
+            ("🐺 Predators", "lupo"),
+            ("🚦 Brenner Transit", "brenner"),
+            ("🤝 Coalition", "koalition"),
+            ("🗣️ Language Rights", "bilinguismo")
+        ]
+        for idx, (label, val) in enumerate(presets):
+            with p_cols[idx]:
+                if st.button(label, key=f"btn_p_{val}", use_container_width=True):
+                    st.session_state["query_input"] = val
+                    st.rerun()
+
         col_ctrl1, col_ctrl2 = st.columns([3, 1])
         with col_ctrl1:
             st.caption(f"Showing results for query: **'{filters['query'] or 'ALL ARTICLES'}'**")
@@ -202,11 +237,16 @@ def main():
             min_sentiment=filters["min_sentiment"],
             max_sentiment=filters["max_sentiment"],
             min_moral=filters["min_moral"],
+            expand_trilingual=filters.get("expand_trilingual", True),
+            enable_prefix=filters.get("enable_prefix", True),
             limit=page_size,
             offset=0
         )
 
-        st.write(f"Found **{total_matches:,}** matching articles.")
+        if service.last_query_expansion:
+            st.info(f"💡 **Search Intelligence:** {service.last_query_expansion}")
+
+        st.write(f"Found **{total_matches:,}** matching articles (ranked by Title-Boosted BM25 relevance).")
 
         if not articles:
             st.info("No articles match the current combination of filters. Try broadening your search or resetting sliders.")

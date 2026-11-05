@@ -53,6 +53,64 @@ SOURCE_LABELS = {
     "trail": "RaiNews TGR TRAIL"
 }
 
+# Regional Trilingual Thesaurus linking key South Tyrolean concepts across DE, IT, and Ladin
+TRILINGUAL_THESAURUS: Dict[str, str] = {
+    "scuola": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "scuole": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "scolastica": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "scolastico": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "schule": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "schulen": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "scola": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "scoles": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "bildung": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+    "istruzione": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
+
+    "autonomia": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+    "autonomie": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+    "statuto": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+    "statut": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+    "competenze": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+    "competenza": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+    "zuständigkeit": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+    "zuständigkeiten": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
+
+    "lupo": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "lupi": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "wolf": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "wölfe": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "orso": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "orsi": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "bär": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "bären": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+    "großraubwild": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
+
+    "brenner": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
+    "brennero": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
+    "transit": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
+    "lueg": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
+
+    "koalition": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
+    "coalizione": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
+    "landesregierung": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
+    "giunta": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
+    "jonta": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
+    "kompatscher": "kompatscher* OR svp*",
+    "svp": "svp* OR volkspartei*",
+
+    "minoranza": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
+    "minoranze": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
+    "minderheit": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
+    "minderheiten": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
+    "proporz": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
+    "sprachgruppe": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
+
+    "bilinguismo": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
+    "zweisprachigkeit": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
+    "muttersprache": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
+    "madrelingua": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
+}
+
 
 class DataService:
     """Read-only access service for didi_corpus.db."""
@@ -61,11 +119,49 @@ class DataService:
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
         if not self.db_path.exists():
             raise FileNotFoundError(f"Corpus database not found at {self.db_path}")
+        self.last_query_expansion: Optional[str] = None
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def build_fts_query(
+        self,
+        raw_query: str,
+        expand_trilingual: bool = True,
+        enable_prefix: bool = True
+    ) -> Tuple[str, Optional[str]]:
+        """
+        Transform raw user input into an optimized FTS5 query.
+        Applies trilingual thesaurus expansion and automated prefix matching (*).
+        """
+        if not raw_query or not raw_query.strip():
+            return "", None
+
+        clean_q = raw_query.strip()
+        low = clean_q.lower()
+
+        # Check trilingual concept expansion
+        if expand_trilingual and low in TRILINGUAL_THESAURUS:
+            return TRILINGUAL_THESAURUS[low], f"Trilingual Concept Expansion active for '{clean_q}' (covering DE, IT, LLD)"
+
+        # If user explicitly used quotes or boolean operators, preserve verbatim
+        if '"' in clean_q or ' OR ' in clean_q or ' AND ' in clean_q or ' NOT ' in clean_q:
+            return clean_q, None
+
+        # Apply prefix wildcarding on alphanumeric words (>= 3 chars)
+        if enable_prefix:
+            tokens = clean_q.split()
+            prefixed = []
+            for t in tokens:
+                if re.match(r"^[A-Za-zÄÖÜäöüßéèàòùìëç]+$", t) and len(t) >= 3 and not t.endswith("*"):
+                    prefixed.append(t + "*")
+                else:
+                    prefixed.append(t)
+            return " ".join(prefixed), "Prefix wildcard search active (*)"
+
+        return clean_q, None
 
     def get_corpus_summary(self) -> Dict[str, Any]:
         """Return global counts and aggregate stats for metric cards."""
@@ -105,23 +201,30 @@ class DataService:
         min_sentiment: Optional[float] = None,
         max_sentiment: Optional[float] = None,
         min_moral: Optional[float] = None,
+        expand_trilingual: bool = True,
+        enable_prefix: bool = True,
         limit: int = 50,
         offset: int = 0
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
-        Execute faceted search over SQLite FTS5 index and metadata tables.
-        Returns (list_of_articles, total_matching_count).
+        Execute faceted search over SQLite FTS5 index with title-boosted BM25 ranking.
+        Supports automated prefix matching (*) and trilingual concept expansion.
         """
         has_query = bool(query and query.strip())
         params: List[Any] = []
         where_clauses: List[str] = []
 
         if has_query:
-            clean_q = query.strip()
-            # Escape double quotes and normalize query for FTS5
-            clean_q = clean_q.replace('"', '""')
+            clean_q, expansion_note = self.build_fts_query(
+                query,
+                expand_trilingual=expand_trilingual,
+                enable_prefix=enable_prefix
+            )
+            self.last_query_expansion = expansion_note
             where_clauses.append("articles_fts MATCH ?")
             params.append(clean_q)
+        else:
+            self.last_query_expansion = None
 
         if sources:
             placeholders = ",".join("?" for _ in sources)
@@ -162,7 +265,7 @@ class DataService:
                 LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
             """
             select_snippet = "snippet(articles_fts, 2, '<mark class=\"fts-hl\">', '</mark>', '...', 50) as snippet,"
-            order_sql = "ORDER BY rank"
+            order_sql = "ORDER BY bm25(articles_fts, 0.0, 5.0, 1.0) ASC"
         else:
             from_sql = """
                 FROM articles a
@@ -259,8 +362,9 @@ class DataService:
         """
         params = []
         if query:
+            fts_q, _ = self.build_fts_query(query, expand_trilingual=True, enable_prefix=True)
             sql += " AND a.id IN (SELECT id FROM articles_fts WHERE articles_fts MATCH ?)"
-            params.append(query)
+            params.append(fts_q)
         if sources:
             placeholders = ",".join("?" * len(sources))
             sql += f" AND a.source IN ({placeholders})"
