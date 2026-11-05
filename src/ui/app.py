@@ -18,7 +18,8 @@ from src.ui.data_service import (
     DataService, LANGUAGE_LABELS, SOURCE_LABELS, FOUNDATION_COLS, EMOTION_COLS
 )
 from src.ui.components.charts import (
-    build_moral_radar, build_emotion_bars, build_timeline_chart
+    build_moral_radar, build_emotion_bars, build_timeline_chart,
+    build_keyness_bar_chart, build_moral_divergence_gauge, build_pre_post_moral_comparison
 )
 
 # Page configuration
@@ -160,12 +161,13 @@ def main():
 
     st.markdown("---")
 
-    # 4 Core Views
-    tab1, tab2, tab3, tab4 = st.tabs([
+    # 5 Core Views
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📄 1. Corpus Explorer & Snippets",
         "🕸️ 2. Comparative Framing Radar",
         "📈 3. Temporal Discourse Dynamics",
-        "🔎 4. Article Deep Dive"
+        "⚡ 4. Focus Events & Meaning-Making",
+        "🔎 5. Article Deep Dive"
     ])
 
     # -------------------------------------------------------------
@@ -284,9 +286,122 @@ def main():
             st.plotly_chart(fig_timeline, use_container_width=True)
 
     # -------------------------------------------------------------
-    # TAB 4: Article Deep Dive
+    # TAB 4: Focus Events & Meaning-Making
     # -------------------------------------------------------------
     with tab4:
+        st.subheader("Event-Driven Meaning-Making & Discursive Shifts")
+        st.caption("Operationalizes Hurtado-Bodell & Menshikova (2026): tracking how critical focal events reshape public discourse and moral framing.")
+
+        events = service.get_focus_events()
+        event_options = list(events.keys())
+
+        col_ev1, col_ev2 = st.columns([2, 1])
+        with col_ev1:
+            selected_event_key = st.selectbox(
+                "Select Regional Focus Event",
+                options=event_options,
+                format_func=lambda d: f"{d} — {events[d]['title']} ({events[d]['category'].capitalize()})"
+            )
+        with col_ev2:
+            default_win = events[selected_event_key].get("default_window", 30)
+            window_days = st.slider("Window Size (± Days)", min_value=15, max_value=90, value=default_win, step=15)
+
+        event_info = events[selected_event_key]
+        st.info(f"**Context ({selected_event_key}):** {event_info['description']}")
+
+        # Compute Event Analysis
+        analysis = service.analyze_focus_event(
+            event_date_str=selected_event_key,
+            window_days=window_days,
+            query=filters["query"]
+        )
+
+        # KPI Row for Event Impact
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric(
+            "Pre-Event Articles",
+            f"{analysis['pre_count']}",
+            help=f"Coverage within {analysis['pre_period']}"
+        )
+        k2.metric(
+            "Post-Event Articles",
+            f"{analysis['post_count']}",
+            delta=f"{analysis['pct_surge']:+.1f}% volume",
+            help=f"Coverage within {analysis['post_period']}"
+        )
+        k3.metric(
+            "Sentiment Shift",
+            f"{analysis['post_sentiment']:+.2f}",
+            delta=f"{analysis['delta_sentiment']:+.2f} Δ",
+            help="Net sentiment polarity shift following the focus event"
+        )
+        jsd_val = analysis["moral_divergence"]["jsd"]
+        k4.metric(
+            "Moral Divergence (JSD)",
+            f"{jsd_val:.4f}",
+            delta=f"Main: {analysis['moral_divergence']['primary_divergence_foundation'].capitalize()}",
+            delta_color="inverse",
+            help="Jensen-Shannon Divergence of 5-foundation moral vector pre vs post event"
+        )
+
+        st.markdown("---")
+
+        # Two-column visual layout
+        col_m_gauge, col_keyness = st.columns([1, 1])
+
+        with col_m_gauge:
+            st.markdown("##### 1. Moral Framing Reconfiguration (Pre vs Post)")
+            fig_pre_post = build_pre_post_moral_comparison(
+                analysis["pre_moral"],
+                analysis["post_moral"],
+                event_title=event_info["title"]
+            )
+            st.plotly_chart(fig_pre_post, use_container_width=True)
+
+            fig_jsd = build_moral_divergence_gauge(
+                jsd_val,
+                title="Temporal Moral Shift (Pre/Post JSD)"
+            )
+            st.plotly_chart(fig_jsd, use_container_width=True)
+
+        with col_keyness:
+            st.markdown("##### 2. Differential Emerging Vocabulary (Dunning G²)")
+            if not analysis["keyness_df"].empty:
+                fig_key = build_keyness_bar_chart(
+                    analysis["keyness_df"],
+                    target_label="Post-Event Discourse",
+                    ref_label="Pre-Event Discourse"
+                )
+                st.plotly_chart(fig_key, use_container_width=True)
+            else:
+                st.warning("Insufficient vocabulary frequency to calculate statistically significant keyness.")
+
+        st.markdown("---")
+
+        # Cross-Lingual Moral Divergence Summary for Active Topic Filter
+        st.subheader("Cross-Lingual Moral Gap on Current Filter")
+        st.caption("Pairwise Jensen-Shannon Divergence across German, Italian, and Ladin communities.")
+
+        pair_div = service.compute_cross_lingual_moral_divergence(
+            query=filters["query"],
+            sources=filters["sources"]
+        )
+
+        if pair_div:
+            p_cols = st.columns(len(pair_div))
+            for idx, (pair_name, p_data) in enumerate(pair_div.items()):
+                with p_cols[idx]:
+                    fig_p = build_moral_divergence_gauge(
+                        p_data["jsd"],
+                        title=f"{pair_name.replace('_', ' ')}"
+                    )
+                    st.plotly_chart(fig_p, use_container_width=True)
+                    st.caption(f"**Key Divergence:** `{p_data['primary_divergence_foundation'].capitalize()}`")
+
+    # -------------------------------------------------------------
+    # TAB 5: Article Deep Dive
+    # -------------------------------------------------------------
+    with tab5:
         st.subheader("Single-Article Qualitative Deep Dive")
         art_id_input = st.text_input("Enter Article ID to inspect:", value="lausc_1" if not articles else articles[0]["id"])
 

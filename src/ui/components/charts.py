@@ -154,3 +154,105 @@ def build_timeline_chart(timeline_df: pd.DataFrame, metric: str = "avg_sentiment
     )
     return fig
 
+
+def build_keyness_bar_chart(
+    keyness_df: pd.DataFrame,
+    target_label: str = "Target Corpus",
+    ref_label: str = "Reference Corpus"
+) -> go.Figure:
+    """
+    Build horizontal divergent bar chart of Dunning's G² keyness statistics.
+    """
+    if keyness_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="Insufficient word frequencies to compute keyness", showarrow=False)
+        return fig
+
+    # Sort so top terms appear cleanly on y-axis
+    df = keyness_df.sort_values(by="g2", ascending=True)
+
+    colors = ["#2b6cb0" if val > 0 else "#c53030" for val in df["g2"]]
+
+    fig = go.Figure(go.Bar(
+        x=df["g2"],
+        y=df["term"],
+        orientation='h',
+        marker_color=colors,
+        text=[f"{abs(val):.1f} (G²)" for val in df["g2"]],
+        textposition="outside",
+        hovertemplate="<b>%{y}</b><br>G²: %{x:.2f}<br>Target rate: %{customdata[0]}/1k<br>Ref rate: %{customdata[1]}/1k<extra></extra>",
+        customdata=df[["target_per_1k", "ref_per_1k"]].values
+    ))
+
+    fig.update_layout(
+        title=dict(
+            text=f"<b>Differential Keyness (Dunning G²)</b><br><sub>Blue: Overused in {target_label} | Red: Overused in {ref_label}</sub>",
+            font=dict(size=14)
+        ),
+        xaxis=dict(title="Dunning G² (Signed by Direction)", zeroline=True, zerolinecolor="#4a5568"),
+        yaxis=dict(title="", tickfont=dict(size=11)),
+        margin=dict(l=70, r=40, t=60, b=40),
+        height=max(400, len(df) * 22)
+    )
+    return fig
+
+
+def build_moral_divergence_gauge(jsd_value: float, title: str = "Moral Framing Divergence (JSD)") -> go.Figure:
+    """
+    Indicator gauge for Jensen-Shannon Moral Divergence (0.0 = Consensual, 1.0 = Polarized).
+    """
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=jsd_value,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': f"<b>{title}</b>", 'font': {'size': 14}},
+        gauge={
+            'axis': {'range': [0, 1.0], 'tickwidth': 1, 'tickcolor': "darkblue"},
+            'bar': {'color': "#1a365d", 'thickness': 0.25},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0.0, 0.10], 'color': '#c6f6d5'},  # High alignment
+                {'range': [0.10, 0.25], 'color': '#feebc8'},  # Moderate gap
+                {'range': [0.25, 1.0], 'color': '#fed7d7'}   # Polarized framing
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 3},
+                'thickness': 0.75,
+                'value': 0.25
+            }
+        }
+    ))
+    fig.update_layout(height=240, margin=dict(l=30, r=30, t=50, b=20))
+    return fig
+
+
+def build_pre_post_moral_comparison(
+    pre_moral: Dict[str, float],
+    post_moral: Dict[str, float],
+    event_title: str = "Focus Event"
+) -> go.Figure:
+    """
+    Grouped bar chart comparing Moral Foundation densities Pre vs Post Focus Event.
+    """
+    foundations = ["Care", "Fairness", "Loyalty", "Authority", "Sanctity"]
+    keys = ["care", "fairness", "loyalty", "authority", "sanctity"]
+
+    pre_vals = [pre_moral.get(k, 0.0) for k in keys]
+    post_vals = [post_moral.get(k, 0.0) for k in keys]
+
+    fig = go.Figure(data=[
+        go.Bar(name='Pre-Event Window', x=foundations, y=pre_vals, marker_color='#4a5568'),
+        go.Bar(name='Post-Event Window', x=foundations, y=post_vals, marker_color='#dd6b20')
+    ])
+
+    fig.update_layout(
+        barmode='group',
+        title=dict(text=f"<b>Moral Framing Reconfiguration: {event_title}</b>", font=dict(size=14)),
+        yaxis=dict(title="Density (Tokens / 1k Words)"),
+        margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5)
+    )
+    return fig
+
