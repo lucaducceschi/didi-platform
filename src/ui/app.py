@@ -90,6 +90,11 @@ def highlight_query(text: str, query: str) -> str:
     return pattern.sub(r'<mark class="fts-hl">\1</mark>', escaped_text)
 
 
+def set_search_query(q_text: str):
+    """Callback to update search query before widgets instantiate on rerun."""
+    st.session_state["query_input"] = q_text
+
+
 def get_service() -> DataService:
     return DataService()
 
@@ -225,9 +230,13 @@ def main():
         ]
         for idx, (label, val) in enumerate(presets):
             with p_cols[idx]:
-                if st.button(label, key=f"btn_p_{val}", use_container_width=True):
-                    st.session_state["query_input"] = val
-                    st.rerun()
+                st.button(
+                    label,
+                    key=f"btn_p_{val}",
+                    on_click=set_search_query,
+                    args=(val,),
+                    use_container_width=True
+                )
 
         col_ctrl1, col_ctrl2 = st.columns([3, 1])
         with col_ctrl1:
