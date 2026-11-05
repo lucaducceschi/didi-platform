@@ -350,6 +350,84 @@ class DataService:
 
             return rows, total_count
 
+    def export_filtered_dataset(
+        self,
+        query: str = "",
+        sources: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        min_date: Optional[str] = None,
+        max_date: Optional[str] = None,
+        min_sentiment: Optional[float] = None,
+        max_sentiment: Optional[float] = None,
+        min_moral: Optional[float] = None,
+        expand_trilingual: bool = True,
+        enable_prefix: bool = True,
+        limit: int = 2000
+    ) -> pd.DataFrame:
+        """
+        Export filtered corpus articles with clean academic columns and APA citations.
+        Used for CSV downloads into R, SPSS, Python, and qualitative coding tools.
+        """
+        rows, _ = self.search_articles(
+            query=query,
+            sources=sources,
+            languages=languages,
+            min_date=min_date,
+            max_date=max_date,
+            min_sentiment=min_sentiment,
+            max_sentiment=max_sentiment,
+            min_moral=min_moral,
+            expand_trilingual=expand_trilingual,
+            enable_prefix=enable_prefix,
+            use_hybrid=False,  # High throughput deterministic retrieval for bulk cohorts
+            limit=limit,
+            offset=0
+        )
+        if not rows:
+            return pd.DataFrame()
+
+        records = []
+        for r in rows:
+            author = r.get("author") or "Redaktion"
+            pub_date = r.get("publish_date") or ""
+            pub_year = pub_date[:4] if pub_date else "ND"
+            source_name = SOURCE_LABELS.get(r.get("source"), r.get("source", ""))
+            title = r.get("title", "")
+            apa = f"{author} ({pub_year}). {title}. {source_name}. DIDI Corpus ID: {r.get('id')}."
+
+            clean_snippet = re.sub(r'<[^>]+>', '', r.get("snippet", ""))
+            clean_snippet = re.sub(r'\s+', ' ', clean_snippet).strip()
+
+            records.append({
+                "corpus_id": r.get("id"),
+                "source": source_name,
+                "language": r.get("language"),
+                "publish_date": pub_date[:10] if pub_date else "",
+                "author": author,
+                "title": title,
+                "category": r.get("category"),
+                "word_count": r.get("word_count"),
+                "net_sentiment": r.get("net_sentiment"),
+                "care_density": r.get("care_density"),
+                "fairness_density": r.get("fairness_density"),
+                "loyalty_density": r.get("loyalty_density"),
+                "authority_density": r.get("authority_density"),
+                "sanctity_density": r.get("sanctity_density"),
+                "moral_density": r.get("moral_density"),
+                "trust_density": r.get("trust_density"),
+                "fear_density": r.get("fear_density"),
+                "joy_density": r.get("joy_density"),
+                "sadness_density": r.get("sadness_density"),
+                "anger_density": r.get("anger_density"),
+                "anticipation_density": r.get("anticipation_density"),
+                "disgust_density": r.get("disgust_density"),
+                "surprise_density": r.get("surprise_density"),
+                "context_snippet": clean_snippet,
+                "url": r.get("url"),
+                "apa_citation": apa
+            })
+        return pd.DataFrame(records)
+
     def get_article_by_id(self, article_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve complete article including full text, breadcrumbs, and all metrics."""
         with self._get_connection() as conn:

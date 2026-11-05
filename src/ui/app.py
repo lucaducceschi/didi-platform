@@ -5,11 +5,12 @@ Mixed-Methods Media Analysis for Eurac Research and University of Innsbruck.
 
 import html
 import re
-import textwrap
-import streamlit as st
-import pandas as pd
-from pathlib import Path
 import sys
+import textwrap
+from datetime import datetime
+from pathlib import Path
+import pandas as pd
+import streamlit as st
 
 # Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -238,11 +239,33 @@ def main():
                     use_container_width=True
                 )
 
-        col_ctrl1, col_ctrl2 = st.columns([3, 1])
+        col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([2.5, 1, 1.2])
         with col_ctrl1:
             st.caption(f"Showing results for query: **'{filters['query'] or 'ALL ARTICLES'}'**")
         with col_ctrl2:
             page_size = st.selectbox("Page Size", options=[10, 20, 50], index=0)
+        with col_ctrl3:
+            export_df = service.export_filtered_dataset(
+                query=filters["query"],
+                sources=filters["sources"],
+                languages=filters["languages"],
+                min_sentiment=filters["min_sentiment"],
+                max_sentiment=filters["max_sentiment"],
+                min_moral=filters["min_moral"],
+                expand_trilingual=filters.get("expand_trilingual", True),
+                enable_prefix=filters.get("enable_prefix", True),
+                limit=1500
+            )
+            if not export_df.empty:
+                csv_bytes = export_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+                st.download_button(
+                    label=f"📥 Export ({len(export_df):,})",
+                    data=csv_bytes,
+                    file_name=f"didi_subset_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Export research dataset with complete NLP metrics, moral foundations, emotions, and APA citations."
+                )
 
         articles, total_matches = service.search_articles(
             query=filters["query"],
@@ -509,6 +532,15 @@ def main():
                     ref_label="Pre-Event Discourse"
                 )
                 st.plotly_chart(fig_key, use_container_width=True)
+                k_csv = analysis["keyness_df"].to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+                st.download_button(
+                    label="📥 Export Keyness Table (CSV)",
+                    data=k_csv,
+                    file_name=f"didi_keyness_{event_key}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Export statistically significant emerging vocabulary with Dunning G² values and effect sizes."
+                )
             else:
                 st.warning("Insufficient vocabulary frequency to calculate statistically significant keyness.")
 
