@@ -239,7 +239,7 @@ def main():
                     use_container_width=True
                 )
 
-        col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([2.5, 1, 1.2])
+        col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns([2.2, 0.8, 1.0, 1.2])
         with col_ctrl1:
             st.caption(f"Showing results for query: **'{filters['query'] or 'ALL ARTICLES'}'**")
         with col_ctrl2:
@@ -265,6 +265,18 @@ def main():
                     mime="text/csv",
                     use_container_width=True,
                     help="Export research dataset with complete NLP metrics, moral foundations, emotions, and APA citations."
+                )
+        with col_ctrl4:
+            all_notes_df = service.export_all_annotations()
+            if not all_notes_df.empty:
+                codebook_csv = all_notes_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+                st.download_button(
+                    label=f"📓 Codebook ({len(all_notes_df)})",
+                    data=codebook_csv,
+                    file_name=f"didi_codebook_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Download all saved qualitative highlights, thematic codes, memos, and APA citations."
                 )
 
         articles, total_matches = service.search_articles(
@@ -331,6 +343,7 @@ def main():
         if not articles:
             st.info("No articles match the current combination of filters. Try broadening your search or resetting sliders.")
         else:
+            annot_counts = service.get_all_annotation_counts()
             for art in articles:
                 lang = art["language"]
                 src_display = SOURCE_LABELS.get(art['source'], art['source'])
@@ -340,6 +353,9 @@ def main():
                 s_val = art.get("net_sentiment", 0.0)
                 sent_label = "Positive" if s_val > 0.1 else ("Negative" if s_val < -0.1 else "Neutral")
                 sent_emoji = "🟢" if s_val > 0.1 else ("🔴" if s_val < -0.1 else "⚪")
+
+                note_count = annot_counts.get(art['id'], 0)
+                note_badge = f" &nbsp;•&nbsp; 📝 **{note_count} Notes**" if note_count > 0 else ""
 
                 # Clean snippet text: strip HTML tags and collapse whitespace/newlines to plain text
                 raw_snippet = art.get('snippet', '')
@@ -354,7 +370,7 @@ def main():
                             f"**`{lang.upper()}`** &nbsp; **{src_display}** &nbsp;•&nbsp; 📅 {art['publish_date'][:10]} &nbsp;•&nbsp; ✍️ {author_clean}"
                         )
                     with c_meta_right:
-                        st.caption(f"Valence: **{sent_emoji} {s_val:+.2f} ({sent_label})** &nbsp;•&nbsp; Tokens: **{art['word_count']}**")
+                        st.caption(f"Valence: **{sent_emoji} {s_val:+.2f} ({sent_label})** &nbsp;•&nbsp; Tokens: **{art['word_count']}**{note_badge}")
 
                     # Title
                     st.markdown(f"#### {art['title']}")
@@ -425,6 +441,72 @@ def main():
                                 p_clean = paragraph.strip()
                                 if p_clean:
                                     st.write(p_clean)
+
+                            # Qualitative Highlighting & Analyst Annotation
+                            st.markdown("---")
+                            st.markdown("#### 📝 Qualitative Highlighting & Research Memo")
+
+                            existing_notes = service.get_annotations_for_article(art['id'])
+                            if existing_notes:
+                                st.caption(f"**Saved Notes for this Article ({len(existing_notes)}):**")
+                                for n in existing_notes:
+                                    with st.container(border=True):
+                                        cn1, cn2 = st.columns([5, 1])
+                                        with cn1:
+                                            st.markdown(f"🏷️ **`{n['tag']}`** &nbsp;•&nbsp; ✍️ *{n['analyst_name']}* &nbsp;•&nbsp; `{n['created_at'][:16]}`")
+                                            st.markdown(f"> *\"{n['quote']}\"*")
+                                            if n['note']:
+                                                st.write(f"💡 **Memo:** {n['note']}")
+                                        with cn2:
+                                            if st.button("🗑️ Delete", key=f"del_{n['id']}_{art['id']}", use_container_width=True):
+                                                service.delete_annotation(n['id'])
+                                                st.rerun()
+
+                            with st.form(key=f"form_note_{art['id']}"):
+                                st.markdown("**Add Research Memo / Text Highlight:**")
+                                quote_in = st.text_area(
+                                    "Quoted Evidence (Paste key sentence from above):",
+                                    key=f"qin_{art['id']}",
+                                    height=70,
+                                    placeholder="Paste or type textual evidence from the article here..."
+                                )
+                                c_tag, c_name = st.columns([2, 1])
+                                with c_tag:
+                                    preset_tags = [
+                                        "Autonomy:Competences",
+                                        "Minority:Language Rights",
+                                        "School:Bilingualism",
+                                        "Brenner:Transit",
+                                        "Coalition:Politics",
+                                        "Fiscal:Financial Autonomy",
+                                        "Identity:Ethnicity",
+                                        "Culture:Literature",
+                                        "Custom Tag"
+                                    ]
+                                    sel_tag = st.selectbox("Thematic Coding Tag:", options=preset_tags, key=f"stag_{art['id']}")
+                                    cust_tag = st.text_input("If Custom Tag, enter name:", key=f"ctag_{art['id']}")
+                                    final_tag = cust_tag.strip() if sel_tag == "Custom Tag" and cust_tag.strip() else sel_tag
+                                with c_name:
+                                    analyst_in = st.text_input("Analyst Name / Initials:", value="Analyst", key=f"aname_{art['id']}")
+                                memo_in = st.text_area(
+                                    "Analyst Qualitative Commentary / Memo:",
+                                    key=f"min_{art['id']}",
+                                    height=70,
+                                    placeholder="Why is this passage significant? What framing does it represent?"
+                                )
+                                if st.form_submit_button("💾 Save Qualitative Note", use_container_width=True):
+                                    if quote_in.strip():
+                                        service.add_annotation(
+                                            article_id=art['id'],
+                                            quote=quote_in.strip(),
+                                            tag=final_tag,
+                                            note=memo_in.strip(),
+                                            analyst_name=analyst_in.strip()
+                                        )
+                                        st.success("Qualitative note saved!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Please paste or type a quoted passage to highlight.")
                         else:
                             st.warning("Article text could not be loaded from local database.")
 
