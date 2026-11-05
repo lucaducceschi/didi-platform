@@ -63,10 +63,11 @@ All frontend code for the research demo lives in `src/ui/`:
 Reference [`docs/PRD.md`](docs/PRD.md#6-one-week-implementation-plan-day-by-day) for detailed task specifications:
 - [x] **Core Ingestion & NLP:** 12,624 articles (2.77M tokens) harmonized into `data/processed/didi_corpus.db`.
 - [x] **Stanza MFD 2.0 Engine:** Lexicons compiled and validated for `de`, `it`, and `lld` (`assets/mfd_compiled_lemmas.json`).
-- [ ] **Day 1: Data Service & App Shell:** Create `src/ui/data_service.py` and initial `src/ui/app.py` skeleton.
-- [ ] **Day 2: View 1 (Explorer):** FTS5 search, facet filters, paginated snippet cards.
-- [ ] **Day 3: View 2 (Framing Radar):** Plotly 5-axis MFT radar overlay and Plutchik emotion distribution.
-- [ ] **Day 4: View 3 (Temporal Dynamics):** Monthly time-series of sentiment and moral framing (2017–2026).
-- [ ] **Day 5: View 4 (Article Deep Dive):** Full-text reader with colored token annotations.
+- [x] **Day 1: Data Service & App Shell:** Create `src/ui/data_service.py` and initial `src/ui/app.py` skeleton.
+- [x] **Day 2: View 1 (Explorer):** FTS5 search, facet filters, paginated snippet cards.
+- [x] **Day 3: View 2 (Framing Radar):** Plotly 5-axis MFT radar overlay and Plutchik emotion distribution.
+- [x] **Day 4: View 3 (Temporal Dynamics):** Monthly time-series of sentiment and moral framing (2017–2026).
+- [x] **Day 5: View 4 (Article Deep Dive):** Full-text reader with colored token annotations.
 - [ ] **Day 6: Export & Polishing:** CSV/Excel export for research subsets + responsive styling.
 - [ ] **Day 7: Packaging & Docker:** Final verification and `docker-compose up didi-ui`.
+
