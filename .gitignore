@@ -13,6 +13,7 @@ ENV/
 *.db
 *.db-shm
 *.db-wal
+*.npy
 data/raw/
 data/processed/*.db
 *.db-journal

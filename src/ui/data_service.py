@@ -5,6 +5,7 @@ and pandas transformations.
 """
 
 import json
+import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from src.nlp.framing_divergence import (
     compute_dunning_keyness,
     compute_moral_divergence
 )
+from src.nlp.hybrid_search import HybridSearchEngine
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "processed" / "didi_corpus.db"
 
@@ -120,6 +122,7 @@ class DataService:
         if not self.db_path.exists():
             raise FileNotFoundError(f"Corpus database not found at {self.db_path}")
         self.last_query_expansion: Optional[str] = None
+        self.hybrid_engine = HybridSearchEngine()
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -203,6 +206,7 @@ class DataService:
         min_moral: Optional[float] = None,
         expand_trilingual: bool = True,
         enable_prefix: bool = True,
+        use_hybrid: bool = True,
         limit: int = 50,
         offset: int = 0
     ) -> Tuple[List[Dict[str, Any]], int]:
@@ -302,6 +306,47 @@ class DataService:
 
             cur.execute(data_query, params + [limit, offset])
             rows = [dict(r) for r in cur.fetchall()]
+
+            # Apply hybrid semantic expansion and fusion
+            if has_query and use_hybrid and self.hybrid_engine.is_available:
+                vector_candidates = self.hybrid_engine.semantic_search(query, top_k=100)
+                if vector_candidates:
+                    existing_ids = {r["id"] for r in rows}
+                    # If BM25 returned fewer than limit matches (e.g. cross-lingual mismatch),
+                    # fetch top semantic candidates that are missing
+                    needed_extra = [aid for aid, sim in vector_candidates if aid not in existing_ids and sim >= 0.45][:limit]
+                    if needed_extra:
+                        placeholders = ",".join("?" for _ in needed_extra)
+                        sql_extra = f"""
+                            SELECT 
+                                a.id, a.source, a.language, a.url, a.title, a.publish_date, a.author, a.category,
+                                a.word_count, a.full_text, substr(a.full_text, 1, 350) || '...' as snippet,
+                                m.net_sentiment, m.ttr, m.root_ttr, m.mean_sentence_length,
+                                m.anger_density, m.anticipation_density, m.disgust_density, m.fear_density,
+                                m.joy_density, m.sadness_density, m.surprise_density, m.trust_density,
+                                m.care_density, m.fairness_density, m.loyalty_density, m.authority_density, m.sanctity_density,
+                                m.care_virtue_density, m.care_vice_density,
+                                m.fairness_virtue_density, m.fairness_vice_density,
+                                m.loyalty_virtue_density, m.loyalty_vice_density,
+                                m.authority_virtue_density, m.authority_vice_density,
+                                m.sanctity_virtue_density, m.sanctity_vice_density,
+                                m.moral_density, m.moral_valence
+                            FROM articles a
+                            LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
+                            WHERE a.id IN ({placeholders})
+                        """
+                        cur.execute(sql_extra, needed_extra)
+                        extra_rows = [dict(r) for r in cur.fetchall()]
+                        rows.extend(extra_rows)
+                        total_count = max(total_count, len(rows))
+
+                    rows = self.hybrid_engine.fuse_rankings(rows, vector_candidates)
+                    rows = rows[:limit]
+
+                    if self.last_query_expansion:
+                        self.last_query_expansion += " + 🧠 Hybrid Semantic Fusion"
+                    else:
+                        self.last_query_expansion = "🧠 Hybrid Semantic Fusion active (BM25 + Multilingual MiniLM)"
 
             return rows, total_count
 

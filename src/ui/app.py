@@ -120,6 +120,11 @@ def render_sidebar(service: DataService):
         value=True,
         help="Matches grammatical endings (e.g. autonom* matches Autonomie, autonomo, autonoma)."
     )
+    use_hybrid = st.sidebar.checkbox(
+        "🧠 Hybrid Semantic Reranking",
+        value=True,
+        help="Fuses BM25 keyword matching with multilingual MiniLM vector similarity."
+    )
 
     # 2. Outlets
     all_sources = list(SOURCE_LABELS.keys())
@@ -169,7 +174,8 @@ def render_sidebar(service: DataService):
         "max_sentiment": sent_range[1],
         "min_moral": min_moral,
         "expand_trilingual": expand_trilingual,
-        "enable_prefix": enable_prefix
+        "enable_prefix": enable_prefix,
+        "use_hybrid": use_hybrid
     }
 
 
@@ -239,6 +245,7 @@ def main():
             min_moral=filters["min_moral"],
             expand_trilingual=filters.get("expand_trilingual", True),
             enable_prefix=filters.get("enable_prefix", True),
+            use_hybrid=filters.get("use_hybrid", True),
             limit=page_size,
             offset=0
         )
@@ -246,7 +253,7 @@ def main():
         if service.last_query_expansion:
             st.info(f"💡 **Search Intelligence:** {service.last_query_expansion}")
 
-        st.write(f"Found **{total_matches:,}** matching articles (ranked by Title-Boosted BM25 relevance).")
+        st.write(f"Found **{total_matches:,}** matching articles (ranked by Hybrid BM25 + Vector Fusion).")
 
         if not articles:
             st.info("No articles match the current combination of filters. Try broadening your search or resetting sliders.")
@@ -285,6 +292,10 @@ def main():
                 top_emo = max(emos.items(), key=lambda x: x[1])
                 emo_badge_html = f'<span class="metric-badge" style="background:#f7fafc; color:#4a5568; border:1px solid #e2e8f0;">🎭 {top_emo[0]} ({top_emo[1]:.1f}/1k)</span>' if top_emo[1] >= 1.5 else ""
 
+                # Semantic Match Badge
+                sem_sim = art.get("semantic_sim")
+                sem_badge_html = f'<span class="metric-badge" style="background:#e6fffa; color:#234e52; border:1px solid #b2f5ea;">🧠 {sem_sim:.0%} Semantic Match</span>' if sem_sim else ""
+
                 author_clean = art.get('author') or 'Redaktion'
                 cat_clean = art.get('category') or 'General'
 
@@ -310,6 +321,7 @@ def main():
                         <div>
                             {moral_badges_html}
                             {emo_badge_html}
+                            {sem_badge_html}
                         </div>
                         <span style="font-size:0.78rem; color:#a0aec0;">Category: {cat_clean} | ID: {art['id']}</span>
                     </div>
