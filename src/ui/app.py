@@ -5,6 +5,7 @@ Mixed-Methods Media Analysis for Eurac Research and University of Innsbruck.
 
 import html
 import re
+import textwrap
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -247,7 +248,7 @@ def main():
                 author_clean = art.get('author') or 'Redaktion'
                 cat_clean = art.get('category') or 'General'
 
-                st.markdown(f"""
+                card_html = textwrap.dedent(f"""
                 <div class="article-card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <div>
@@ -273,7 +274,8 @@ def main():
                         <span style="font-size:0.78rem; color:#a0aec0;">Category: {cat_clean} | ID: {art['id']}</span>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """).strip()
+                st.markdown(card_html, unsafe_allow_html=True)
 
                 # Expandable Full-Text Reader Drawer
                 with st.expander(f"📖 Read Full Article: \"{art['title']}\" ({art['word_count']} words)", expanded=False):
