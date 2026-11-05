@@ -106,3 +106,4 @@ Close the presentation by putting the 4 expansion options on screen and asking t
 ```
 
 Ask them: **"Which of these four would save you the most research hours in your next publication?"**
+

@@ -173,3 +173,4 @@ AUTOMATION & COMMODITY FEATURES     │               ENTERPRISE MEDIA SAAS
 ---
 
 *This document is stored as `docs/competitors.md` in the repository and synced with the team.*
+

@@ -74,4 +74,5 @@ Reference [`docs/PRD.md`](docs/PRD.md#6-one-week-implementation-plan-day-by-day)
 - [x] **Day 5b: View 5 (Article Deep Dive):** Full-text reader with colored token annotations and JSON metadata inspector.
 - [x] **Day 6: Export & Polishing:** CSV export for research subsets with APA citations + Dunning G² keyness table export.
 - [x] **Day 7: Packaging & Docker:** Final verification, Docker containerization (`docker-compose up didi-ui`), and demo walkthrough.
+- [x] **Phase 2.1: Qualitative Annotations & Codebook:** SQLite persistent storage (`article_annotations`), inline quote highlight form, card badges, and CSV codebook export.
 
