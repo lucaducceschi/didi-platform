@@ -428,6 +428,136 @@ class DataService:
             })
         return pd.DataFrame(records)
 
+    def get_triangulation_summary(
+        self,
+        query: str = "",
+        sources: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        min_date: Optional[str] = None,
+        max_date: Optional[str] = None,
+        min_sentiment: Optional[float] = None,
+        max_sentiment: Optional[float] = None,
+        min_moral: Optional[float] = None,
+        expand_trilingual: bool = True,
+        enable_prefix: bool = True
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Compute instant 3-way triangulation (German, Italian, Ladin) for the current search query.
+        Returns article counts, mean valence, and dominant Moral Foundation per linguistic group.
+        """
+        where_clauses = []
+        params = []
+        has_query = bool(query and query.strip())
+
+        if has_query:
+            clean_q = query.strip()
+            if expand_trilingual:
+                clean_q_lower = clean_q.lower()
+                expanded_q = TRILINGUAL_THESAURUS.get(clean_q_lower)
+                if expanded_q:
+                    clean_q = expanded_q
+
+            if enable_prefix and " " not in clean_q and not clean_q.endswith("*") and "OR" not in clean_q:
+                clean_q = f"{clean_q}*"
+
+            where_clauses.append("articles_fts MATCH ?")
+            params.append(clean_q)
+
+        if sources:
+            placeholders = ",".join("?" for _ in sources)
+            where_clauses.append(f"a.source IN ({placeholders})")
+            params.extend(sources)
+
+        if languages:
+            placeholders = ",".join("?" for _ in languages)
+            where_clauses.append(f"a.language IN ({placeholders})")
+            params.extend(languages)
+
+        if min_date:
+            where_clauses.append("a.publish_date >= ?")
+            params.append(min_date)
+
+        if max_date:
+            where_clauses.append("a.publish_date <= ?")
+            params.append(max_date)
+
+        if min_sentiment is not None:
+            where_clauses.append("m.net_sentiment >= ?")
+            params.append(float(min_sentiment))
+
+        if max_sentiment is not None:
+            where_clauses.append("m.net_sentiment <= ?")
+            params.append(float(max_sentiment))
+
+        if min_moral is not None and min_moral > 0:
+            where_clauses.append("m.moral_density >= ?")
+            params.append(float(min_moral))
+
+        where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        if has_query:
+            from_sql = """
+                FROM articles_fts f
+                JOIN articles a ON a.id = f.id
+                LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
+            """
+        else:
+            from_sql = """
+                FROM articles a
+                LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
+            """
+
+        sql = f"""
+            SELECT 
+                CASE 
+                    WHEN a.language = 'de' THEN 'German'
+                    WHEN a.language = 'it' THEN 'Italian'
+                    ELSE 'Ladin'
+                END as group_name,
+                count(*) as article_count,
+                avg(m.net_sentiment) as mean_sentiment,
+                avg(m.care_density) as care,
+                avg(m.fairness_density) as fairness,
+                avg(m.loyalty_density) as loyalty,
+                avg(m.authority_density) as authority,
+                avg(m.sanctity_density) as sanctity
+            {from_sql}
+            {where_sql}
+            GROUP BY group_name
+        """
+
+        summary = {
+            "German": {"count": 0, "mean_sentiment": 0.0, "top_foundation": "None", "top_foundation_val": 0.0},
+            "Italian": {"count": 0, "mean_sentiment": 0.0, "top_foundation": "None", "top_foundation_val": 0.0},
+            "Ladin": {"count": 0, "mean_sentiment": 0.0, "top_foundation": "None", "top_foundation_val": 0.0}
+        }
+
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(sql, params)
+            for row in cur.fetchall():
+                r = dict(row)
+                grp = r["group_name"]
+                c = r["article_count"]
+                s = r["mean_sentiment"] or 0.0
+                founds = {
+                    "Care": r["care"] or 0.0,
+                    "Fairness": r["fairness"] or 0.0,
+                    "Loyalty": r["loyalty"] or 0.0,
+                    "Authority": r["authority"] or 0.0,
+                    "Sanctity": r["sanctity"] or 0.0
+                }
+                top_f = max(founds.items(), key=lambda x: x[1])
+                summary[grp] = {
+                    "count": c,
+                    "mean_sentiment": round(float(s), 2),
+                    "top_foundation": top_f[0],
+                    "top_foundation_val": round(float(top_f[1]), 1),
+                    **{k.lower(): round(float(v), 1) for k, v in founds.items()}
+                }
+
+        return summary
+
     def get_article_by_id(self, article_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve complete article including full text, breadcrumbs, and all metrics."""
         with self._get_connection() as conn:

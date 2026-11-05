@@ -286,6 +286,48 @@ def main():
 
         st.write(f"Found **{total_matches:,}** matching articles (ranked by Hybrid BM25 + Vector Fusion).")
 
+        # 3-Way Triangulation Summary Strip
+        tri = service.get_triangulation_summary(
+            query=filters["query"],
+            sources=filters["sources"],
+            languages=filters["languages"],
+            min_sentiment=filters["min_sentiment"],
+            max_sentiment=filters["max_sentiment"],
+            min_moral=filters["min_moral"],
+            expand_trilingual=filters.get("expand_trilingual", True),
+            enable_prefix=filters.get("enable_prefix", True)
+        )
+        if tri and (tri["German"]["count"] > 0 or tri["Italian"]["count"] > 0 or tri["Ladin"]["count"] > 0):
+            with st.container(border=True):
+                st.markdown("**⚖️ Triangulation at a Glance:** *Gruppi diversi, prospettive diverse?*")
+                c_de, c_it, c_lld = st.columns(3)
+                with c_de:
+                    d_de = tri["German"]
+                    st.metric(
+                        label="🇩🇪 German Media",
+                        value=f"{d_de['count']:,} articles",
+                        delta=f"Valence: {d_de['mean_sentiment']:+.2f}"
+                    )
+                    st.caption(f"**Dominant Frame:** `{d_de['top_foundation']}` ({d_de['top_foundation_val']:.1f}/1k)")
+
+                with c_it:
+                    d_it = tri["Italian"]
+                    st.metric(
+                        label="🇮🇹 Italian Media",
+                        value=f"{d_it['count']:,} articles",
+                        delta=f"Valence: {d_it['mean_sentiment']:+.2f}"
+                    )
+                    st.caption(f"**Dominant Frame:** `{d_it['top_foundation']}` ({d_it['top_foundation_val']:.1f}/1k)")
+
+                with c_lld:
+                    d_lld = tri["Ladin"]
+                    st.metric(
+                        label="🏔️ Ladin Media",
+                        value=f"{d_lld['count']:,} articles",
+                        delta=f"Valence: {d_lld['mean_sentiment']:+.2f}"
+                    )
+                    st.caption(f"**Dominant Frame:** `{d_lld['top_foundation']}` ({d_lld['top_foundation_val']:.1f}/1k)")
+
         if not articles:
             st.info("No articles match the current combination of filters. Try broadening your search or resetting sliders.")
         else:
