@@ -259,101 +259,100 @@ def main():
         else:
             for art in articles:
                 lang = art["language"]
-                badge_class = "badge-de" if lang == "de" else ("badge-it" if lang == "it" else "badge-lld")
-                s_val = art.get("net_sentiment", 0.0)
-                sent_color = "#27ae60" if s_val > 0.1 else ("#c0392b" if s_val < -0.1 else "#7f8c8d")
-                sent_label = "Positive" if s_val > 0.1 else ("Negative" if s_val < -0.1 else "Neutral")
-
-                # Compute Moral Badges
-                moral_badges = []
-                if art.get("authority_density", 0.0) >= 0.5:
-                    moral_badges.append(f'<span class="metric-badge" style="background:#ebf8ff; color:#2b6cb0; border:1px solid #bee3f8;">🏛️ Authority ({art["authority_density"]:.1f})</span>')
-                if art.get("fairness_density", 0.0) >= 0.5:
-                    moral_badges.append(f'<span class="metric-badge" style="background:#f0fff4; color:#276749; border:1px solid #c6f6d5;">⚖️ Fairness ({art["fairness_density"]:.1f})</span>')
-                if art.get("care_density", 0.0) >= 0.5:
-                    moral_badges.append(f'<span class="metric-badge" style="background:#faf5ff; color:#6b46c1; border:1px solid #e9d8fd;">💚 Care ({art["care_density"]:.1f})</span>')
-                if art.get("loyalty_density", 0.0) >= 0.5:
-                    moral_badges.append(f'<span class="metric-badge" style="background:#fffaf0; color:#c05621; border:1px solid #feebc8;">🛡️ Loyalty ({art["loyalty_density"]:.1f})</span>')
-                if art.get("sanctity_density", 0.0) >= 0.5:
-                    moral_badges.append(f'<span class="metric-badge" style="background:#fff5f5; color:#9b2c2c; border:1px solid #fed7d7;">✨ Sanctity ({art["sanctity_density"]:.1f})</span>')
-                moral_badges_html = " ".join(moral_badges) if moral_badges else '<span style="font-size:0.75rem; color:#a0aec0;">No prominent moral markers</span>'
-
-                # Dominant Emotion
-                emos = {
-                    "Trust": art.get("trust_density", 0.0),
-                    "Joy": art.get("joy_density", 0.0),
-                    "Anticipation": art.get("anticipation_density", 0.0),
-                    "Fear": art.get("fear_density", 0.0),
-                    "Sadness": art.get("sadness_density", 0.0),
-                    "Anger": art.get("anger_density", 0.0),
-                    "Disgust": art.get("disgust_density", 0.0)
-                }
-                top_emo = max(emos.items(), key=lambda x: x[1])
-                emo_badge_html = f'<span class="metric-badge" style="background:#f7fafc; color:#4a5568; border:1px solid #e2e8f0;">🎭 {top_emo[0]} ({top_emo[1]:.1f}/1k)</span>' if top_emo[1] >= 1.5 else ""
-
-                # Semantic Match Badge
-                sem_sim = art.get("semantic_sim")
-                sem_badge_html = f'<span class="metric-badge" style="background:#e6fffa; color:#234e52; border:1px solid #b2f5ea;">🧠 {sem_sim:.0%} Semantic Match</span>' if sem_sim else ""
-
+                src_display = SOURCE_LABELS.get(art['source'], art['source'])
                 author_clean = art.get('author') or 'Redaktion'
                 cat_clean = art.get('category') or 'General'
 
-                card_html = textwrap.dedent(f"""
-                <div class="article-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <div>
-                            <span class="metric-badge {badge_class}">{lang.upper()}</span>
-                            <span class="metric-badge" style="background:#edf2f7; color:#2d3748;">{SOURCE_LABELS.get(art['source'], art['source'])}</span>
-                            <span style="font-size:0.8rem; color:#718096; margin-right:8px;">📅 {art['publish_date'][:10]}</span>
-                            <span style="font-size:0.8rem; color:#718096;">✍️ {author_clean}</span>
-                        </div>
-                        <div>
-                            <span style="font-size:0.8rem; font-weight:600; color:{sent_color}; margin-right:12px;">Valence: {s_val:+.2f} ({sent_label})</span>
-                            <span style="font-size:0.8rem; color:#4a5568;">Tokens: {art['word_count']}</span>
-                        </div>
-                    </div>
-                    <h3 style="margin:4px 0 8px 0; color:#1a202c; font-size:1.15rem;">{art['title']}</h3>
-                    <p style="font-size:0.95rem; color:#2d3748; line-height:1.6; margin-bottom:12px; background:#f8fafc; padding:10px 14px; border-left:3px solid #3182ce; border-radius:4px;">
-                        {art['snippet']}
-                    </p>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                        <div>
-                            {moral_badges_html}
-                            {emo_badge_html}
-                            {sem_badge_html}
-                        </div>
-                        <span style="font-size:0.78rem; color:#a0aec0;">Category: {cat_clean} | ID: {art['id']}</span>
-                    </div>
-                </div>
-                """).strip()
-                st.markdown(card_html, unsafe_allow_html=True)
+                s_val = art.get("net_sentiment", 0.0)
+                sent_label = "Positive" if s_val > 0.1 else ("Negative" if s_val < -0.1 else "Neutral")
+                sent_emoji = "🟢" if s_val > 0.1 else ("🔴" if s_val < -0.1 else "⚪")
 
-                # Expandable Full-Text Reader Drawer
-                with st.expander(f"📖 Read Full Article: \"{art['title']}\" ({art['word_count']} words)", expanded=False):
-                    pub_year = art['publish_date'][:4]
-                    src_title = SOURCE_LABELS.get(art['source'], art['source'])
-                    apa_cite = f"{author_clean}. ({pub_year}). {art['title']}. {src_title}. DIDI Corpus ID: {art['id']}."
+                # Clean snippet text: strip HTML tags and collapse whitespace/newlines to plain text
+                raw_snippet = art.get('snippet', '')
+                clean_snippet = re.sub(r'<[^>]+>', '', raw_snippet)
+                clean_snippet = re.sub(r'\s+', ' ', clean_snippet).strip()
 
-                    col_c1, col_c2 = st.columns([4, 1])
-                    with col_c1:
-                        st.caption(f"**APA Citation:** `{apa_cite}`")
-                    with col_c2:
-                        st.link_button("Original Outlet ↗", art['url'])
+                with st.container(border=True):
+                    # Top metadata bar
+                    c_meta_left, c_meta_right = st.columns([3, 2])
+                    with c_meta_left:
+                        st.markdown(
+                            f"**`{lang.upper()}`** &nbsp; **{src_display}** &nbsp;•&nbsp; 📅 {art['publish_date'][:10]} &nbsp;•&nbsp; ✍️ {author_clean}"
+                        )
+                    with c_meta_right:
+                        st.caption(f"Valence: **{sent_emoji} {s_val:+.2f} ({sent_label})** &nbsp;•&nbsp; Tokens: **{art['word_count']}**")
 
-                    st.markdown("---")
-                    raw_body = art.get('full_text')
-                    if not raw_body:
-                        # Bulletproof safeguard: fetch directly by ID if not in memory
-                        full_art = service.get_article_by_id(art['id'])
-                        raw_body = full_art.get('full_text', '') if full_art else ''
+                    # Title
+                    st.markdown(f"#### {art['title']}")
 
-                    if raw_body:
-                        hl_body = highlight_query(raw_body, filters['query'])
-                        for paragraph in hl_body.split('\n\n'):
-                            if paragraph.strip():
-                                st.markdown(f"<p style='font-size:0.96rem; line-height:1.65; color:#1a202c;'>{paragraph.strip()}</p>", unsafe_allow_html=True)
-                    else:
-                        st.warning("Article text could not be loaded from local database.")
+                    # Snippet as clean quote block
+                    if clean_snippet:
+                        st.markdown(f"> {clean_snippet}")
+
+                    # Badges row: Moral Foundations + Emotion + Semantic Match
+                    moral_tags = []
+                    if art.get("authority_density", 0.0) >= 0.5:
+                        moral_tags.append(f"🏛️ Authority ({art['authority_density']:.1f})")
+                    if art.get("fairness_density", 0.0) >= 0.5:
+                        moral_tags.append(f"⚖️ Fairness ({art['fairness_density']:.1f})")
+                    if art.get("care_density", 0.0) >= 0.5:
+                        moral_tags.append(f"💚 Care ({art['care_density']:.1f})")
+                    if art.get("loyalty_density", 0.0) >= 0.5:
+                        moral_tags.append(f"🛡️ Loyalty ({art['loyalty_density']:.1f})")
+                    if art.get("sanctity_density", 0.0) >= 0.5:
+                        moral_tags.append(f"✨ Sanctity ({art['sanctity_density']:.1f})")
+
+                    emos = {
+                        "Trust": art.get("trust_density", 0.0),
+                        "Joy": art.get("joy_density", 0.0),
+                        "Anticipation": art.get("anticipation_density", 0.0),
+                        "Fear": art.get("fear_density", 0.0),
+                        "Sadness": art.get("sadness_density", 0.0),
+                        "Anger": art.get("anger_density", 0.0),
+                        "Disgust": art.get("disgust_density", 0.0)
+                    }
+                    top_emo = max(emos.items(), key=lambda x: x[1])
+                    if top_emo[1] >= 1.5:
+                        moral_tags.append(f"🎭 {top_emo[0]} ({top_emo[1]:.1f}/1k)")
+
+                    sem_sim = art.get("semantic_sim")
+                    if sem_sim:
+                        moral_tags.append(f"🧠 {sem_sim:.0%} Semantic Match")
+
+                    # Badges and footer
+                    c_badge_left, c_badge_right = st.columns([3, 2])
+                    with c_badge_left:
+                        if moral_tags:
+                            st.caption(" • ".join(f"`{t}`" for t in moral_tags))
+                        else:
+                            st.caption("_No prominent moral markers_")
+                    with c_badge_right:
+                        st.caption(f"Category: {cat_clean} &nbsp;•&nbsp; ID: `{art['id']}`")
+
+                    # Expandable Full-Text Reader Drawer
+                    with st.expander(f"📖 Read Full Article (words: {art['word_count']})", expanded=False):
+                        pub_year = art['publish_date'][:4]
+                        apa_cite = f"{author_clean}. ({pub_year}). {art['title']}. {src_display}. DIDI Corpus ID: {art['id']}."
+
+                        col_c1, col_c2 = st.columns([4, 1])
+                        with col_c1:
+                            st.caption(f"**APA Citation:** `{apa_cite}`")
+                        with col_c2:
+                            st.link_button("Original Outlet ↗", art['url'])
+
+                        st.markdown("---")
+                        raw_body = art.get('full_text')
+                        if not raw_body:
+                            full_art = service.get_article_by_id(art['id'])
+                            raw_body = full_art.get('full_text', '') if full_art else ''
+
+                        if raw_body:
+                            for paragraph in raw_body.split('\n\n'):
+                                p_clean = paragraph.strip()
+                                if p_clean:
+                                    st.write(p_clean)
+                        else:
+                            st.warning("Article text could not be loaded from local database.")
 
     # -------------------------------------------------------------
     # TAB 2: Framing Radar
