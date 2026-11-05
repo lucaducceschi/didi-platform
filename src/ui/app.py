@@ -288,14 +288,19 @@ def main():
                         st.link_button("Original Outlet ↗", art['url'])
 
                     st.markdown("---")
-                    raw_body = art.get('full_text', '')
+                    raw_body = art.get('full_text')
+                    if not raw_body:
+                        # Bulletproof safeguard: fetch directly by ID if not in memory
+                        full_art = service.get_article_by_id(art['id'])
+                        raw_body = full_art.get('full_text', '') if full_art else ''
+
                     if raw_body:
                         hl_body = highlight_query(raw_body, filters['query'])
                         for paragraph in hl_body.split('\n\n'):
                             if paragraph.strip():
                                 st.markdown(f"<p style='font-size:0.96rem; line-height:1.65; color:#1a202c;'>{paragraph.strip()}</p>", unsafe_allow_html=True)
                     else:
-                        st.write("Full text not available for this article.")
+                        st.warning("Article text could not be loaded from local database.")
 
     # -------------------------------------------------------------
     # TAB 2: Framing Radar
