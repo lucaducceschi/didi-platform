@@ -22,7 +22,7 @@ TMP_INDEX=$(mktemp -u)
 cp .git/index "$TMP_INDEX"
 trap 'rm -f "$TMP_INDEX"' EXIT
 
-GIT_INDEX_FILE="$TMP_INDEX" git add -f assets/ data/processed/didi_corpus.db data/raw/salto/
+GIT_INDEX_FILE="$TMP_INDEX" git add -f assets/ data/processed/didi_corpus.db data/raw/
 TREE_SHA=$(GIT_INDEX_FILE="$TMP_INDEX" git write-tree)
 MAIN_SHA=$(git rev-parse main)
 COMMIT_SHA=$(git commit-tree "$TREE_SHA" -p "$MAIN_SHA" -m "chore(gitlab-mirror): bundle full assets, raw salto, and SQLite corpus DB")
