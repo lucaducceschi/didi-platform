@@ -578,7 +578,7 @@ def main():
                 st.download_button(
                     label="📥 Export Keyness Table (CSV)",
                     data=k_csv,
-                    file_name=f"didi_keyness_{event_key}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    file_name=f"didi_keyness_{selected_event_key}_{datetime.now().strftime('%Y%m%d')}.csv",
                     mime="text/csv",
                     use_container_width=True,
                     help="Export statistically significant emerging vocabulary with Dunning G² values and effect sizes."
