@@ -90,7 +90,6 @@ def highlight_query(text: str, query: str) -> str:
     return pattern.sub(r'<mark class="fts-hl">\1</mark>', escaped_text)
 
 
-@st.cache_resource
 def get_service() -> DataService:
     return DataService()
 
