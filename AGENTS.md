@@ -12,6 +12,9 @@ The **DIDI Platform** is an academic mixed-methods research workbench developed 
 - **German (`de`):** *Die Neue Südtiroler Tageszeitung*, *Salto.bz*
 - **Italian (`it`):** *Salto.bz*
 - **Ladin (`lld_gherd`, `lld_badia`, `lld_fascia`):** *La Usc di Ladins*, *RaiNews TGR TRAIL*
+- **Official Institutional Press:** *Landespresseamt / Ufficio Stampa Provincia Autonoma di Bolzano* (`news.provinz.bz.it` / `news.provincia.bz.it`) — labeled with `source_type: "official_press"` to isolate institutional from journalistic discourse.
+
+**Provenance Rule:** All German and Italian text must be verified regional South Tyrolean production. Never ingest syndicated wire agency feeds (ANSA, APA, dpa); always enforce category isolation, byline checks, and gazetteer validation (see [`docs/PRD.md`](docs/PRD.md#31-regional-provenance--sourcing-strategy-for-german--italian)).
 
 **Living Product Specification:** See [`docs/PRD.md`](docs/PRD.md) for full functional requirements, user personas, and the 7-day interactive demo roadmap.
 

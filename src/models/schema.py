@@ -12,16 +12,20 @@ try:
 
     class DIDIArticle(BaseModel):
         id: str
-        source: Literal["tageszeitung", "la_usc", "salto", "trail"]
+        source: Literal["tageszeitung", "la_usc", "salto", "trail", "provinz_news", "dolomiten", "altoadige"]
         language: str  # "de", "it", "lld", "lld_gherd", "lld_badia", "lld_fascia"
         url: str
         title: str
         publish_date: datetime
         author: str = "Redaktion"
+        source_type: Literal["journalism", "official_press", "parliamentary_debate"] = "journalism"
         category: Optional[str] = None
         breadcrumbs: List[str] = Field(default_factory=list)
         full_text: str
         word_count: int = 0
+        local_provenance_score: float = 1.0
+        geographic_scope: Optional[str] = "Südtirol/Alto Adige"
+        wire_agency_detected: Optional[str] = None
         metadata: Dict[str, Any] = Field(default_factory=dict)
 
         @model_validator(mode="before")
@@ -51,9 +55,13 @@ except ImportError:
         publish_date: datetime
         full_text: str
         author: str = "Redaktion"
+        source_type: str = "journalism"
         category: Optional[str] = None
         breadcrumbs: List[str] = field(default_factory=list)
         word_count: int = 0
+        local_provenance_score: float = 1.0
+        geographic_scope: Optional[str] = "Südtirol/Alto Adige"
+        wire_agency_detected: Optional[str] = None
         metadata: Dict[str, Any] = field(default_factory=dict)
 
         def __post_init__(self):

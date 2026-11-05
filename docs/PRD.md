@@ -37,10 +37,50 @@ The **DIDI Workbench** is a unified computational research platform designed spe
 ## 3. Existing Technical Assets & Foundation
 
 The platform builds directly upon pre-existing, tested computational assets:
-- **Corpus Database ([`data/processed/didi_corpus.db`](file:///Users/luca/Gits/didi-platform/data/processed/didi_corpus.db)):** 12,624 articles, 2,765,436 tokens (2017–2026) across 5 linguistic varieties (`lld_gherd`, `lld_badia`, `lld_fascia`, `de`, `it`) with active SQLite FTS5 search.
+- **Corpus Database ([`data/processed/didi_corpus.db`](data/processed/didi_corpus.db)):** 12,624 articles, 2,765,436 tokens (2017–2026) across 5 linguistic varieties (`lld_gherd`, `lld_badia`, `lld_fascia`, `de`, `it`) with active SQLite FTS5 search.
 - **Quantitative Metrics Pipeline:** Pre-computed `article_nlp_metrics` table with lexical diversity (TTR, Root TTR, Herdan's $C$, Hapax ratio), NRC discrete emotions, and 10-pole Moral Foundations Theory densities ($[0, \infty)$ per 1,000 words, plus net moral valence $[-1.0, +1.0]$).
 - **Stanza MFD 2.0 Lexicon Engine:** Curated and Stanza-disambiguated dictionaries for German, Italian, and triangulated Ladin (DLS + Eurac BISTRO + 17k Forni inflections).
 - **Dual-Remote Architecture:** Open-source public code & copyright-safe metadata on GitHub (`origin`), full-text data and dictionary assets on institutional GitLab (`gitlab`).
+
+### 3.1 Regional Provenance & Sourcing Strategy for German & Italian
+
+To ensure rigorous mixed-methods validity, text collected for German and Italian must represent authentic **South Tyrolean regional discourse** rather than syndicated national Italian (ANSA, Adnkronos) or German/Austrian (dpa, APA) wire news republished on local portals.
+
+#### Sourcing Tiers & Phasing
+1. **Tier 1: Active Journalistic Media (Immediate Core):**
+   - **German (`de`):** *Salto.bz* (`salto.bz/de`), *Die Neue Südtiroler Tageszeitung* (`tageszeitung.it`), *Barfuss.it*, *ff – Das Südtiroler Wochenmagazin* (`ff-online.com`).
+   - **Italian (`it`):** *Salto.bz* (`salto.bz/it`), *RaiNews TGR Bolzano* (Italian desk via hidden JSON endpoint), *QuiMedia / QuiBolzano*.
+   - **Ladin (`lld`):** *La Usc di Ladins* (`lausc.it`), *RaiNews TGR TRAIL* (`rainews.it/tgr/trail`).
+2. **Tier 2: Official Institutional Press (High-Assurance Parallel Anchor):**
+   - **Landespresseamt / Ufficio Stampa della Provincia Autonoma di Bolzano** (`news.provinz.bz.it` / `news.provincia.bz.it`): Official press releases published bilingually (DE and IT) on identical dates.
+   - **Mandatory Metadata Tag:** Ingested articles must carry `source_type: "official_press"` (distinct from `"journalism"`) so researchers can compare institutional communication against independent journalistic framing.
+3. **Tier 3: Paywalled Journalistic Resources (Stashed for Future Integration):**
+   - *Dolomiten* (`stol.it`, Athesia Group) and *Alto Adige* (`altoadige.it`). Connectors and schema abstractions are designed and staged; active crawling is paused until institutional access credentials/dumps are secured.
+4. **Tier 4: Deferred for Later Phases:**
+   - *Municipal Gazettes (Gemeindeblätter / Bollettini Comunali):* Excluded for now due to high OCR/PDF formatting noise; reserved for future micro-level civic studies.
+   - *Local Audio & Podcasts:* Spoken German/Italian broadcasts (Rai Südtirol, Radio Tandem) reserved for Phase 2 transcription via Whisper large-v3.
+
+#### High-Assurance Provenance Engine (Anti-Syndication Filters)
+Every candidate article must pass three automated provenance gates before entering the corpus:
+1. **Wire Byline Stripping:** Automatically detect and flag/reject articles credited to national press agencies (`ANSA`, `Adnkronos`, `APA`, `dpa`, `Italpress`, `Reuters`). Accept only local editorial bylines (`red`, named local staff, community contributors).
+2. **Category / Rubric Isolation:** Restrict crawling strictly to regional rubrics (`/chronik/suedtirol`, `/politik/landespolitik`, `/lokal/bozen`, `/cronaca/bolzano`), discarding national and global sections (`/welt`, `/italien`, `/sport`).
+3. **Local Toponym & Entity Gazetteer Scoring:** Calculate a `local_provenance_score` ($[0.0, 1.0]$) measuring token density of South Tyrolean toponyms (from `comuni.csv` and `toponomastica.db`: *Bozen/Bolzano, Meran/Merano, Brixen/Bressanone, Bruneck/Brunico, Schlanders/Silandro, Pusteria, Isarco, Salurn/Salorno*) and political/institutional anchors (*Landeshauptmann, Kompatscher, Giunta Provinciale, Autonomia, Proporz, SVP, Team K*).
+
+### 3.2 Reproducible Manifest-Driven Harvesting Engine
+
+To ensure any scraping or harvesting run is 100% reproducible over time without fragile ad-hoc scripts:
+1. **Declarative Source Manifests (`config/sources/*.yaml`):**
+   - Each outlet is defined by a version-controlled YAML manifest declaring seed endpoints, sitemap URLs, target URL regexes, DOM selectors, rate limits, and provenance exclusion rules.
+2. **Raw Immutable Snapshots & SHA-256 Checksums:**
+   - Raw HTTP responses or structured JSON payloads are preserved immutably with SHA-256 checksums and ISO-8601 timestamps (`scraped_at_utc`).
+   - Deduplication by canonical URL and content hash guarantees idempotency: re-running a crawler only ingests delta updates without altering historical data.
+3. **Extended Provenance Schema:**
+   The canonical `DIDIArticle` schema records:
+   - `source_type`: `Literal["journalism", "official_press", "parliamentary_debate"]`
+   - `local_provenance_score`: `float` ($0.0$ to $1.0$)
+   - `wire_agency_detected`: `Optional[str]` (e.g. `"ANSA"` or `None`)
+   - `geographic_scope`: `str` (e.g. `"Südtirol/Alto Adige"`, `"Bozen/Bolzano"`, `"Val Badia"`)
+   - `collector_version`: `str` (version tag of scraper manifest)
 
 ---
 
