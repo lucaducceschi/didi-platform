@@ -103,6 +103,25 @@ python scripts/run_harmonization.py
 python scripts/validate_mfd_parallel.py
 ```
 
+### Launch Interactive Research Workbench (Web UI)
+
+Run the interactive mixed-methods workbench locally:
+```bash
+streamlit run src/ui/app.py
+```
+Or run with zero-config Docker:
+```bash
+docker-compose up didi-ui
+```
+Open your browser at `http://localhost:8501`.
+
+The workbench provides 5 interconnected analytical views:
+1. **Corpus Explorer & Snippets:** Hybrid BM25 + dense vector semantic search, regional trilingual thesaurus, facet filters, inline full-text reader, and 1-click **CSV research subset export** with APA citations.
+2. **Comparative Framing Radar:** Triangulated 5-axis Moral Foundations radar and discrete Plutchik emotion density profiles across German, Italian, and Ladin media.
+3. **Temporal Discourse Dynamics:** Monthly and quarterly longitudinal trends (2017–2026) tracking volume surges, sentiment shifts, and moral salience.
+4. **Focus Events & Meaning-Making:** Theoretical grounding in Hurtado-Bodell & Menshikova (2026, *Poetics*); calculates pre/post volume surge, sentiment shift, Dunning $G^2$ differential keyness vocabulary (with CSV export), and Jensen-Shannon Moral Foundations Divergence Index (MFDI).
+5. **Article Deep Dive:** Token-level linguistic inspection highlighting moral and emotional lexicon triggers with raw JSON metadata inspector.
+
 ### Interactive Research CLI Query
 Search across qualitative text snippets with simultaneous quantitative emotion and Moral Foundations scores:
 ```bash
