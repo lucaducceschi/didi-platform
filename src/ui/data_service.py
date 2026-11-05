@@ -161,21 +161,21 @@ class DataService:
                 JOIN articles a ON a.id = f.id
                 LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
             """
-            select_snippet = "snippet(articles_fts, 1, '<mark class=\"fts-hl\">', '</mark>', '...', 28) as snippet,"
+            select_snippet = "snippet(articles_fts, 2, '<mark class=\"fts-hl\">', '</mark>', '...', 50) as snippet,"
             order_sql = "ORDER BY rank"
         else:
             from_sql = """
                 FROM articles a
                 LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
             """
-            select_snippet = "substr(a.full_text, 1, 260) || '...' as snippet,"
+            select_snippet = "substr(a.full_text, 1, 350) || '...' as snippet,"
             order_sql = "ORDER BY a.publish_date DESC"
 
         count_query = f"SELECT count(*) as total {from_sql} {where_sql}"
         data_query = f"""
             SELECT 
                 a.id, a.source, a.language, a.url, a.title, a.publish_date, a.author, a.category,
-                a.word_count, {select_snippet}
+                a.word_count, a.full_text, {select_snippet}
                 m.net_sentiment, m.ttr, m.root_ttr, m.mean_sentence_length,
                 m.anger_density, m.anticipation_density, m.disgust_density, m.fear_density,
                 m.joy_density, m.sadness_density, m.surprise_density, m.trust_density,

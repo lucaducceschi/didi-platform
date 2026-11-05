@@ -316,3 +316,4 @@ class FocusEventManager:
             "pre_articles": pre_articles,
             "post_articles": post_articles
         }
+
