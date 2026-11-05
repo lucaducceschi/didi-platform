@@ -15,6 +15,8 @@ It investigates how political discourse, minority rights, language policy, and r
 2. **Italian (`it`):** *Salto.bz* (`salto.bz/it`)
 3. **Ladin (`lld_gherd`, `lld_badia`, `lld_fascia`):** *La Usc di Ladins* (`lausc.it`) & *RaiNews TGR TRAIL* (`rainews.it/tgr/trail`)
 
+**Product Specification & UI Roadmap:** See [`docs/PRD.md`](docs/PRD.md) for full functional specifications, user personas, and the 1-week interactive Streamlit research demo roadmap.
+
 ---
 
 ## 2. Harmonized Trilingual Corpus

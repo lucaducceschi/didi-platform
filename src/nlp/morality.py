@@ -266,3 +266,4 @@ class MoralFoundationsAnalyzer:
         res["moral_valence"] = round((total_virtues - total_vices) / total_moral, 3) if total_moral > 0 else 0.0
         res["matched_moral_tokens"] = matched_tokens
         return res
+

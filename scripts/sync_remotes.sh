@@ -30,3 +30,4 @@ git update-ref refs/heads/full-data "$COMMIT_SHA"
 git push -f gitlab full-data
 
 echo "Done! Public GitHub ('origin/main') and private GitLab ('gitlab/main' + 'gitlab/full-data') are in sync."
+
