@@ -72,6 +72,6 @@ Reference [`docs/PRD.md`](docs/PRD.md#6-one-week-implementation-plan-day-by-day)
 - [x] **Day 4: View 3 (Temporal Dynamics):** Monthly time-series of sentiment and moral framing (2017–2026).
 - [x] **Day 5: View 4 (Focus Events & Meaning-Making):** Grounded in Hurtado-Bodell & Menshikova (2026); Dunning G² keyness + Jensen-Shannon Moral Foundations Divergence Index (MFDI).
 - [x] **Day 5b: View 5 (Article Deep Dive):** Full-text reader with colored token annotations and JSON metadata inspector.
-- [ ] **Day 6: Export & Polishing:** CSV/Excel export for research subsets + responsive styling.
-- [ ] **Day 7: Packaging & Docker:** Final verification and `docker-compose up didi-ui`.
+- [x] **Day 6: Export & Polishing:** CSV export for research subsets with APA citations + Dunning G² keyness table export.
+- [ ] **Day 7: Packaging & Docker:** Final verification, Docker containerization (`docker-compose up didi-ui`), and demo walkthrough.
 
