@@ -147,20 +147,36 @@ For a **1-week working demo**, **Streamlit** combined with **Plotly** is the opt
   - Highlight tokens triggering Moral Foundations (color-coded by foundation).
 - **Metadata Sidebar:** Complete JSON metadata drawer (breadcrumbs, raw tags, categories, exact lexical diversity metrics: TTR, Hapax ratio, MSL).
 
+### View 6 / Analyst Workspace: Qualitative Highlighting & Note-Taking System
+- **Interactive Passage Quotation & Highlighting:**
+  - Analysts can select or input specific textual evidence/quotes directly from the full-text reader.
+- **Qualitative Coding Taxonomy:**
+  - Tag quotes with thematic research codes (e.g. `[Autonomy:Competences]`, `[Minority:Linguistic-Identity]`, `[School:Bilingualism]`, `[Brenner:Transit]`, `[Coalition:SVP-Lega]`) plus user-defined custom tags.
+- **Persistent Analyst Memos & Commentary:**
+  - Attach analytical qualitative notes and theoretical observations directly to the article and quote.
+- **Persistent Storage:**
+  - Backed by an `article_annotations` table in the local SQLite database (`data/processed/didi_corpus.db`).
+- **Visual Card Badges:**
+  - Articles with active annotations display an interactive badge: `📝 Annotated (X notes)`.
+- **Qualitative Codebook & Evidence Export:**
+  - 1-click export of all researcher highlights and memos into a formatted CSV or Markdown Codebook with full metadata and APA citations, ready for inclusion in research reports or import into MAXQDA/NVivo.
+
 ---
 
-## 6. One-Week Implementation Plan (Day-by-Day)
+## 6. Implementation Plan & Milestones
 
-| Day | Focus Area | Deliverables | Verification Milestone |
-| :---: | :--- | :--- | :--- |
-| **Day 1** | **Data Service & Project Scaffolding** | Create `src/ui/data_service.py` to handle cached queries from `didi_corpus.db`. Set up Streamlit layout and global styling (`src/ui/app.py`). | `streamlit run src/ui/app.py` loads corpus summary cards in < 0.5s. |
-| **Day 2** | **View 1: Corpus Explorer & Qualitative Search** | Implement FTS5 keyword query engine, faceted sidebar filters, and paginated article cards with highlighted snippets. | Search query "Autonomie" renders filtered cards across DE, IT, and LLD. |
-| **Day 3** | **View 2: Comparative Framing Radar** | Build interactive Plotly Radar chart and Emotion distribution plots grouped by language variety. | Radar chart dynamically renders 3 language polygons for any search query. |
-| **Day 4** | **View 3: Temporal Discourse Dynamics** | Build time-series aggregation of sentiment and moral foundation density over 2017–2026. | Monthly timeline renders coverage spikes and valence shifts cleanly. |
-| **Day 5** | **View 4: Focus Events & Meaning-Making** | Grounded in Hurtado-Bodell & Menshikova (2026); Dunning G² differential keyness, Jensen-Shannon Moral Foundations Divergence Index (MFDI), and pre/post event framing shifts. | Selecting a focus event (e.g. 2018/2023 elections, COVID lockdown) renders pre/post volume surge, sentiment delta, and divergent key terms. |
-| **Day 5b** | **View 5: Article Inspector & Token Highlighting** | Implement single-article inspection view with in-text highlighting of moral and emotional lexical triggers and raw JSON metadata. | Clicking an article card opens full text with metadata and linguistic metrics. |
-| **Day 6** | **Polish, Caching Optimization & Export** | Add CSV/Excel export for filtered queries, optimize SQL query indices, ensure responsive typography on desktop and laptop displays. | Export button generates research-ready CSV with all NLP metrics and snippet context. |
-| **Day 7** | **Dry-Run, Docker Packaging & Demo Script** | Package into a self-contained `docker-compose` run, write user walkthrough guide in `README.md`, test with real Eurac research questions. | Flawless end-to-end 5-minute walkthrough ready for stakeholders. |
+| Milestone | Focus Area | Deliverables | Status |
+| :---: | :--- | :--- | :---: |
+| **Day 1** | **Data Service & Project Scaffolding** | Create `src/ui/data_service.py` with cached queries; set up Streamlit layout (`src/ui/app.py`). | **Done** |
+| **Day 2** | **View 1: Corpus Explorer & Hybrid Search** | FTS5 search, trilingual concept thesaurus, dense MiniLM vector fusion, facet filters, paginated cards. | **Done** |
+| **Day 3** | **View 2: Comparative Framing Radar** | Plotly 5-axis MFT radar overlay and Plutchik emotion density distribution across DE, IT, and LLD. | **Done** |
+| **Day 4** | **View 3: Temporal Discourse Dynamics** | Monthly/quarterly longitudinal timeline of sentiment and moral foundation density (2017–2026). | **Done** |
+| **Day 5** | **View 4: Focus Events & Meaning-Making** | Hurtado-Bodell & Menshikova (2026); pre/post surge %, Dunning G² keyness, Jensen-Shannon MFDI. | **Done** |
+| **Day 5b** | **View 5: Article Inspector & Token Highlighting** | Single-article reader with in-text moral/emotion token highlighting and raw JSON metadata inspector. | **Done** |
+| **Day 6** | **Export, Triangulation & Caching Optimization** | 3-way Triangulation strip, 26-column research CSV export with APA citations, Keyness CSV export. | **Done** |
+| **Day 7** | **Packaging, Docker & Walkthrough** | Zero-config `Dockerfile` and `docker-compose.yml`, dual-remote Git governance synchronization. | **Done** |
+| **Phase 2.1** | **Qualitative Highlighting & Analyst Notes** | SQLite `article_annotations` table, inline quote capture, thematic coding tags, analyst memos, codebook export. | **Next** |
+| **Phase 2.2** | **CAQDAS QDPX Interoperability** | Two-way `.qdpx` format export for direct import into MAXQDA, NVivo, and ATLAS.ti. | **Planned** |
 
 ---
 
