@@ -69,6 +69,15 @@ class ProjectArticle(Base):
     added_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=utcnow)
 
 
+class ArticleProgress(Base):
+    __tablename__ = "article_progress"
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id"), primary_key=True)
+    article_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    status: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=utcnow)
+
+
 class Code(Base):
     __tablename__ = "codes"
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)

@@ -15,7 +15,7 @@ function readFilters(params: URLSearchParams): SearchFilters {
   }
 }
 
-function FacetGroup({ legend, name, options, selected, onChange }: {
+export function FacetGroup({ legend, name, options, selected, onChange }: {
   legend: string
   name: string
   options: { id: string; label: string; count: number }[]

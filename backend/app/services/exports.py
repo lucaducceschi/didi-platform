@@ -3,7 +3,6 @@
 import csv
 import io
 import uuid
-from typing import Dict
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,20 +28,6 @@ def _as_csv(columns, rows) -> bytes:
     return buffer.getvalue().encode("utf-8-sig")
 
 
-def _article_metadata(corpus: DataService, article_ids: set) -> Dict[str, dict]:
-    ids = sorted(article_ids)
-    found: Dict[str, dict] = {}
-    with corpus._get_connection() as connection:
-        for index in range(0, len(ids), 500):
-            batch = ids[index : index + 500]
-            placeholders = ",".join("?" * len(batch))
-            rows = connection.execute(
-                f"SELECT id, title, source, language, publish_date, url FROM articles WHERE id IN ({placeholders})", batch
-            )
-            found.update({row["id"]: dict(row) for row in rows})
-    return found
-
-
 def annotations_csv(db: Session, corpus: DataService, project_id: uuid.UUID, project_name: str) -> bytes:
     annotations = list(
         db.scalars(
@@ -52,7 +37,7 @@ def annotations_csv(db: Session, corpus: DataService, project_id: uuid.UUID, pro
         )
     )
     paths = code_paths(db, project_id)
-    articles = _article_metadata(corpus, {a.article_id for a in annotations})
+    articles = corpus.get_article_metadata([a.article_id for a in annotations])
     rows = []
     for a in annotations:
         article = articles.get(a.article_id, {})

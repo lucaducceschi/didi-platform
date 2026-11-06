@@ -75,8 +75,7 @@ def search_articles(
     )
 
 
-@router.get("/articles/{article_id}", response_model=ArticleDetail)
-def get_article(article_id: str, corpus: Corpus) -> ArticleDetail:
+def article_detail(corpus: DataService, article_id: str) -> ArticleDetail:
     article = corpus.get_article_by_id(article_id)
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found.")
@@ -87,3 +86,8 @@ def get_article(article_id: str, corpus: Corpus) -> ArticleDetail:
         metrics=ArticleMetrics(**{key: article.get(key) for key in ArticleMetrics.model_fields}),
         metadata=article.get("metadata") or {},
     )
+
+
+@router.get("/articles/{article_id}", response_model=ArticleDetail)
+def get_article(article_id: str, corpus: Corpus) -> ArticleDetail:
+    return article_detail(corpus, article_id)

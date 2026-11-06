@@ -3,6 +3,9 @@ import { ApiError, getProject } from '../api'
 import { ErrorMessage } from '../components/Message'
 import { useApi } from '../useApi'
 import { ActivityTab } from './project/ActivityTab'
+import { AddArticlesPage } from './project/AddArticlesPage'
+import { LibraryTab } from './project/LibraryTab'
+import { ReaderPage } from './project/ReaderPage'
 import { CodebookTab } from './project/CodebookTab'
 import { MembersTab } from './project/MembersTab'
 import { SettingsTab } from './project/SettingsTab'
@@ -23,6 +26,7 @@ export function ProjectPage() {
         {project.description && <p className="project-description">{project.description}</p>}
       </div>
       <nav className="tabs" aria-label="Project sections">
+        <NavLink to={`${base}/articles`} end={false}>Articles</NavLink>
         <NavLink to={`${base}/codebook`}>Codebook</NavLink>
         <NavLink to={`${base}/members`}>Members</NavLink>
         <NavLink to={`${base}/activity`}>Activity</NavLink>
@@ -33,7 +37,10 @@ export function ProjectPage() {
         </span>
       </nav>
       <Routes>
-        <Route index element={<Navigate to={`${base}/codebook`} replace />} />
+        <Route index element={<Navigate to={`${base}/articles`} replace />} />
+        <Route path="articles" element={<LibraryTab project={project} />} />
+        <Route path="articles/add" element={project.can_manage && !project.archived ? <AddArticlesPage project={project} /> : <Navigate to={`${base}/articles`} replace />} />
+        <Route path="articles/:articleId" element={<ReaderPage project={project} />} />
         <Route path="codebook" element={<CodebookTab project={project} />} />
         <Route path="members" element={<MembersTab project={project} onChanged={reload} />} />
         <Route path="activity" element={<ActivityTab project={project} />} />

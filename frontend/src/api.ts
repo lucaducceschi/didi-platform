@@ -232,3 +232,106 @@ export interface ActivityEntry {
 
 export const listActivity = (projectId: string, signal?: AbortSignal) =>
   getJson<ActivityEntry[]>(`/api/projects/${projectId}/activity`, signal)
+
+export interface LibraryCoder {
+  user: UserBrief
+  status: 'in_progress' | 'done' | null
+  segments: number
+  stale_segments: number
+}
+
+export type MyStatus = 'not_started' | 'in_progress' | 'done'
+
+export interface LibraryArticle {
+  id: string
+  in_corpus: boolean
+  title: string
+  source_label: string | null
+  language_label: string | null
+  publish_date: string | null
+  word_count: number | null
+  my_status: MyStatus
+  coders: LibraryCoder[]
+}
+
+export interface LibraryResponse {
+  project_total: number
+  total: number
+  page: number
+  page_size: number
+  results: LibraryArticle[]
+  languages: Facet[]
+  sources: Facet[]
+}
+
+export interface LibraryFilters {
+  languages: string[]
+  sources: string[]
+  status: MyStatus | ''
+  page: number
+}
+
+export function libraryPath(projectId: string, { languages, sources, status, page }: LibraryFilters): string {
+  const params = new URLSearchParams()
+  languages.forEach((language) => params.append('language', language))
+  sources.forEach((source) => params.append('source', source))
+  if (status) params.set('status', status)
+  params.set('page', String(page))
+  return `/api/projects/${projectId}/library?${params}`
+}
+
+export const getLibrary = (projectId: string, filters: LibraryFilters, signal?: AbortSignal) =>
+  getJson<LibraryResponse>(libraryPath(projectId, filters), signal)
+
+export interface ProjectSearchResult {
+  id: string
+  title: string
+  source_label: string
+  language_label: string
+  publish_date: string
+  word_count: number
+  snippet: SnippetPart[]
+  in_project: boolean
+}
+
+export interface ProjectSearchResponse {
+  total: number
+  in_project_total: number
+  page: number
+  page_size: number
+  results: ProjectSearchResult[]
+}
+
+export const searchForProject = (projectId: string, filters: SearchFilters, signal?: AbortSignal) =>
+  getJson<ProjectSearchResponse>(searchPath(filters).replace('/api/articles/search', `/api/projects/${projectId}/article-search`), signal)
+
+export interface ArticlesAdded {
+  added: number
+  already_present: number
+}
+
+export const addArticles = (projectId: string, article_ids: string[]) =>
+  request<ArticlesAdded>('POST', `/api/projects/${projectId}/articles`, { article_ids })
+export const addArticlesFromSearch = (projectId: string, body: { q: string; source: string[]; language: string[] }) =>
+  request<ArticlesAdded>('POST', `/api/projects/${projectId}/articles/from-search`, body)
+
+export const getProjectArticle = (projectId: string, articleId: string, signal?: AbortSignal) =>
+  getJson<ArticleDetail>(`/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}`, signal)
+
+export interface Annotation {
+  id: string
+  article_id: string
+  code_id: string
+  user: UserBrief
+  start_pos: number
+  end_pos: number
+  quote: string
+  memo: string
+  status: 'active' | 'stale'
+  revision: number
+  created_at: string
+  updated_at: string
+}
+
+export const listAnnotations = (projectId: string, articleId: string, scope: 'mine' | 'all', signal?: AbortSignal) =>
+  getJson<Annotation[]>(`/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}/annotations?scope=${scope}`, signal)

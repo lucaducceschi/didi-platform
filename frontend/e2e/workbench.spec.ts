@@ -47,6 +47,7 @@ test('a project lead builds a nested codebook, renames and merges codes', async 
   const page = await sessionFor(browser, baseURL, 'anna')
   await expect(page.getByRole('heading', { name: 'Language rights' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Autonomy framing' }).click()
+  await page.getByRole('link', { name: 'Codebook' }).click()
 
   const tree = page.locator('.code-tree')
   await expect(tree.getByText('Competences', { exact: true })).toBeVisible()
@@ -97,6 +98,7 @@ test('a coder can add codes but not change them, and cannot see other projects',
   await expect(page.getByRole('link', { name: 'Users' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Language rights' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Autonomy framing' }).click()
+  await page.getByRole('link', { name: 'Codebook' }).click()
   const projectUrl = page.url()
 
   // Codes aren't editable, but a new one can be added.
@@ -128,6 +130,7 @@ test('the other project has its own codebook', async ({ browser, baseURL }) => {
   const page = await sessionFor(browser, baseURL, 'ben')
   await expect(page.getByRole('link', { name: 'Autonomy framing' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Language rights' }).click()
+  await page.getByRole('link', { name: 'Codebook' }).click()
   await expect(page.getByText('This codebook is empty')).toBeVisible()
   await addCode(page, 'Ladin in school')
   await expect(page.locator('.code-tree').getByText('Reform', { exact: true })).toHaveCount(0)
@@ -137,6 +140,7 @@ test('the other project has its own codebook', async ({ browser, baseURL }) => {
 test('a stale screen gets a conflict message and cannot overwrite newer work', async ({ browser, baseURL }) => {
   const anna = await sessionFor(browser, baseURL, 'anna')
   await anna.getByRole('link', { name: 'Autonomy framing' }).click()
+  await anna.getByRole('link', { name: 'Codebook' }).click()
   const url = anna.url()
   const projectId = new URL(url).pathname.split('/')[2]
   const codes = await (await anna.request.get(`/api/projects/${projectId}/codes`)).json()

@@ -148,6 +148,69 @@ class ProjectArticlesAdded(BaseModel):
     already_present: int
 
 
+class ProjectArticlesFromSearch(BaseModel):
+    q: str = ""
+    source: Optional[List[str]] = None
+    language: Optional[List[str]] = None
+
+
+class LibraryCoder(BaseModel):
+    user: UserBrief
+    status: Optional[Literal["in_progress", "done"]] = None
+    segments: int = 0
+    stale_segments: int = 0
+
+
+class LibraryArticle(BaseModel):
+    id: str
+    in_corpus: bool
+    title: str
+    source: Optional[str] = None
+    source_label: Optional[str] = None
+    language: Optional[str] = None
+    language_label: Optional[str] = None
+    publish_date: Optional[str] = None
+    author: Optional[str] = None
+    word_count: Optional[int] = None
+    my_status: Literal["not_started", "in_progress", "done"]
+    coders: List[LibraryCoder]
+
+
+class LibraryFacet(BaseModel):
+    id: str
+    label: str
+    count: int
+
+
+class LibraryResponse(BaseModel):
+    project_total: int
+    total: int
+    page: int
+    page_size: int
+    results: List[LibraryArticle]
+    languages: List[LibraryFacet]
+    sources: List[LibraryFacet]
+
+
+class ProjectSearchResult(BaseModel):
+    id: str
+    title: str
+    source_label: str
+    language_label: str
+    publish_date: str
+    word_count: int
+    snippet: List[Dict[str, Any]]
+    in_project: bool
+
+
+class ProjectSearchResponse(BaseModel):
+    total: int
+    in_project_total: int
+    page: int
+    page_size: int
+    results: List[ProjectSearchResult]
+
+
 class AnnotationCreate(BaseModel):
     start: int
     end: int

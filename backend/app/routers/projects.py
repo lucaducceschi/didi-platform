@@ -1,12 +1,9 @@
 import uuid
-from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Query, Response
 from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
-from src.ui.data_service import DataService
 
 from backend.app.corpus import get_corpus
 from backend.app.deps import AdminUser, CurrentUser, Db, ManagerAccess, ProjectAccess, ReadAccess
@@ -24,7 +21,7 @@ from backend.app.schemas_work import (
     ProjectUpdate,
     UserBrief,
 )
-from backend.app.services import codebook, exports
+from backend.app.services import codebook, exports, library
 from backend.app.services.activity import log_activity
 
 router = APIRouter(prefix="/api/projects")
@@ -184,31 +181,13 @@ def remove_member(user_id: uuid.UUID, access: ManagerAccess, db: Db) -> None:
     db.commit()
 
 
-def existing_article_ids(corpus: DataService, article_ids: List[str]) -> set:
-    found = set()
-    with corpus._get_connection() as connection:
-        for index in range(0, len(article_ids), 500):
-            batch = article_ids[index : index + 500]
-            placeholders = ",".join("?" * len(batch))
-            found.update(row["id"] for row in connection.execute(f"SELECT id FROM articles WHERE id IN ({placeholders})", batch))
-    return found
-
-
 @router.post("/{project_id}/articles", response_model=ProjectArticlesAdded)
 def add_articles(body: ProjectArticlesAdd, access: ManagerAccess, db: Db):
     requested = sorted(set(body.article_ids))
-    missing = set(requested) - existing_article_ids(get_corpus(), requested)
+    missing = set(requested) - set(get_corpus().get_article_metadata(requested))
     if missing:
         raise invalid(f"{len(missing)} of these articles are not in the corpus.")
-    result = db.execute(
-        insert(ProjectArticle)
-        .values([{"project_id": access.project.id, "article_id": a, "added_by": access.user.id, "added_at": datetime.now().astimezone()} for a in requested])
-        .on_conflict_do_nothing()
-        .returning(ProjectArticle.article_id)
-    )
-    added = len(result.all())
-    if added:
-        log_activity(db, "articles.added", f"{added} articles", user_id=access.user.id, project_id=access.project.id)
+    added = library.add_articles(db, access.project.id, access.user.id, requested)
     db.commit()
     return ProjectArticlesAdded(added=added, already_present=len(requested) - added)
 

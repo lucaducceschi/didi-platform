@@ -458,6 +458,48 @@ class DataService:
             })
         return pd.DataFrame(records)
 
+    def search_article_ids(
+        self,
+        query: str = "",
+        sources: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+    ) -> List[str]:
+        """Return the IDs of all articles matching a search, without the cost of loading their text."""
+        where_clauses: List[str] = []
+        params: List[Any] = []
+        has_query = bool(query and query.strip())
+        if has_query:
+            fts_query, _ = self.build_fts_query(query)
+            where_clauses.append("articles_fts MATCH ?")
+            params.append(fts_query)
+        if sources:
+            where_clauses.append(f"a.source IN ({','.join('?' for _ in sources)})")
+            params.extend(sources)
+        if languages:
+            where_clauses.append(f"a.language IN ({','.join('?' for _ in languages)})")
+            params.extend(languages)
+        from_sql = "articles_fts f JOIN articles a ON a.id = f.id" if has_query else "articles a"
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        with self._get_connection() as conn:
+            return [row["id"] for row in conn.execute(f"SELECT a.id FROM {from_sql} {where_sql}", params)]
+
+    def get_article_metadata(self, article_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Return {id: metadata} for the given articles, leaving out any that aren't in the corpus."""
+        found: Dict[str, Dict[str, Any]] = {}
+        ids = sorted(set(article_ids))
+        with self._get_connection() as conn:
+            for index in range(0, len(ids), 500):
+                batch = ids[index : index + 500]
+                rows = conn.execute(
+                    f"""
+                    SELECT id, source, language, url, title, publish_date, author, word_count
+                    FROM articles WHERE id IN ({','.join('?' for _ in batch)})
+                    """,
+                    batch,
+                )
+                found.update({row["id"]: dict(row) for row in rows})
+        return found
+
     def get_articles_for_qdpx(self, article_ids: List[str]) -> List[Dict[str, Any]]:
         """Return QDPX document records for the given articles, oldest first."""
         placeholders = ",".join("?" * len(article_ids))
