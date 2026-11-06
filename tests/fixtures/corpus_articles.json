@@ -1,0 +1,7 @@
+[
+  {"id": "fx_de_1", "source": "salto", "language": "de", "url": "https://example.org/de/1", "title": "Autonomie im Landtag", "publish_date": "2025-03-01T12:00:00+00:00", "author": "Test Autor", "category": "Politik", "full_text": "Der Landtag diskutiert die Autonomie erneut.\n\nDie Debatte über die Autonomie geht weiter."},
+  {"id": "fx_it_1", "source": "salto", "language": "it", "url": "https://example.org/it/1", "title": "La scuola bilingue", "publish_date": "2025-02-01T12:00:00+00:00", "author": "Autrice Prova", "category": "Scuola", "full_text": "La scuola bilingue resta al centro del dibattito sulla autonomia."},
+  {"id": "fx_lld_nfd", "source": "la_usc", "language": "lld_gherd", "url": "https://example.org/lld/1", "title": "Gherdëina nfd", "publish_date": "2025-01-15T12:00:00+00:00", "author": "AB", "category": "Valedes", "full_text": "Gherdëina ie na val ladina.\n\nLa scola ie mpurtanta."},
+  {"id": "fx_lld_crlf", "source": "trail", "language": "lld_badia", "url": "https://example.org/lld/2", "title": "Crlf", "publish_date": "2025-01-10T12:00:00+00:00", "author": "Redaktion", "category": "Trail", "full_text": "Linia un\r\nLinia dui\r\n\r\nLe teater por döt."},
+  {"id": "fx_markup", "source": "salto", "language": "de", "url": "https://example.org/de/2", "title": "Markup <b>Titel</b>", "publish_date": "2024-12-01T12:00:00+00:00", "author": "Test Autor", "category": "Kultur", "full_text": "Emoji 🙂 und <script>alert('x')</script> und *Sterne* im Museumsbericht."}
+]

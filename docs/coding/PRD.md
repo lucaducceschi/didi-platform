@@ -76,7 +76,7 @@ Measured in a browser on 2026-11-06. The code is in [`spike/`](spike/). It ran i
 | Offsets matched Python slices for emoji, NFD combining characters, CRLF, Markdown-like text and selections crossing highlight spans | One container with `white-space: pre-wrap` and spans holding the raw text is safe |
 | A mouse drag included a trailing space | The server trims whitespace from selections and recalculates positions |
 
-The corpus contains these cases: 1,401 articles are not NFC-normalized, 4 contain characters outside the Basic Multilingual Plane, 3 contain `\r`, and 216 contain Markdown-active characters.
+The corpus contains these cases: 1,401 articles are not NFC-normalized, 4 contain characters outside the Basic Multilingual Plane, 216 contain Markdown-active characters, and 1 contains a control character (`\x08`). None contains `\r` since the Salto re-scrape, but future sources may, so tests keep a synthetic CRLF case.
 
 ## 5. Data model
 

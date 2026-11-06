@@ -120,13 +120,15 @@ TRILINGUAL_THESAURUS: Dict[str, str] = {
 class DataService:
     """Read-only access service for didi_corpus.db."""
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Optional[Path] = None, read_only: bool = False, enable_hybrid: bool = True):
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        self.read_only = read_only
         if not self.db_path.exists():
             raise FileNotFoundError(f"Corpus database not found at {self.db_path}")
         self.last_query_expansion: Optional[str] = None
-        self.hybrid_engine = HybridSearchEngine()
-        self._init_annotations_table()
+        self.hybrid_engine = HybridSearchEngine() if enable_hybrid else None
+        if not read_only:
+            self._init_annotations_table()
 
     def _init_annotations_table(self):
         """Ensure the article_annotations table exists in SQLite database."""
@@ -150,7 +152,10 @@ class DataService:
             conn.commit()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        if self.read_only:
+            conn = sqlite3.connect(f"{self.db_path.resolve().as_uri()}?mode=ro", uri=True)
+        else:
+            conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -333,7 +338,7 @@ class DataService:
             rows = [dict(r) for r in cur.fetchall()]
 
             # Apply hybrid semantic expansion and fusion
-            if has_query and use_hybrid and self.hybrid_engine.is_available:
+            if has_query and use_hybrid and self.hybrid_engine and self.hybrid_engine.is_available:
                 vector_candidates = self.hybrid_engine.semantic_search(query, top_k=100)
                 if vector_candidates:
                     existing_ids = {r["id"] for r in rows}

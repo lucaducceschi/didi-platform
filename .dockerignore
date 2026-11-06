@@ -9,3 +9,5 @@ data/raw
 data/processed/*.db
 data/processed/*.npy
 
+frontend/node_modules
+frontend/dist

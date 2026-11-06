@@ -19,6 +19,32 @@ It investigates how political discourse, minority rights, language policy, and r
 
 ---
 
+## Running the App
+
+DIDI has two apps side by side while it moves to a full web app. See [`docs/coding/PRD.md`](docs/coding/PRD.md) for the plan.
+
+**Annotation Workbench (React and Python, in development).** It needs Docker, Node.js 22 or later, Python 3.11 in `.venv`, and the corpus file at `data/processed/didi_corpus.db`.
+
+```bash
+make setup    # Install dependencies once
+make dev      # Start PostgreSQL, the API and the frontend
+```
+
+Open http://127.0.0.1:5180. The API runs on port 8010 and its documentation is at http://127.0.0.1:8010/docs. To change settings, copy `.env.example` to `.env`.
+
+```bash
+make test     # Python and frontend tests; the corpus file is optional
+make e2e      # Browser tests against the real corpus, with `make dev` running
+              # First run only: npx --prefix frontend playwright install chromium
+make db-down  # Stop PostgreSQL; its data is kept
+```
+
+**Analysis demo (Streamlit).**
+
+```bash
+.venv/bin/streamlit run src/ui/app.py
+```
+
 ## 2. Harmonized Trilingual Corpus
 
 The platform harmonizes **12,220 articles** spanning **2,567,181 words** (2017–2026):

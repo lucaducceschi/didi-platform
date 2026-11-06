@@ -75,6 +75,6 @@ Reference [`docs/PRD.md`](docs/PRD.md#6-one-week-implementation-plan-day-by-day)
 - [x] **Day 6: Export & Polishing:** CSV export for research subsets with APA citations + Dunning G² keyness table export.
 - [x] **Day 7: Packaging & Docker:** Final verification, Docker containerization (`docker-compose up didi-ui`), and demo walkthrough.
 - [ ] **Phase 2.2: MAXQDA QDPX Export:** Article and metadata export built (`src/ui/qdpx.py`, tests in `tests/`); awaiting an import test in MAXQDA. Coded segments not started.
-- [ ] **Phase 3.1: Annotation Workbench:** React and Python app where up to 10 researchers run their own annotation projects, per [`docs/coding/PRD.md`](docs/coding/PRD.md). Developed locally; hosting undecided. Not started. New features go there; the Streamlit app in `src/ui/` stays as the analysis demo until its views are ported.
+- [ ] **Phase 3.1: Annotation Workbench:** React and Python app where up to 10 researchers run their own annotation projects, per [`docs/coding/PRD.md`](docs/coding/PRD.md). Developed locally; hosting undecided. Task 0 (local skeleton) built; Tasks 1–3 not started. New features go there; the Streamlit app in `src/ui/` stays as the analysis demo until its views are ported.
 - [x] **Phase 2.1: Qualitative Annotations & Codebook:** SQLite persistent storage (`article_annotations`), inline quote highlight form, card badges, and CSV codebook export.
 
