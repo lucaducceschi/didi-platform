@@ -127,6 +127,7 @@ def main():
     print("\n" + "=" * 70)
     print("  Harmonization & NLP Profiling Complete. Ready for Workbench & RAG.")
     print("=" * 70)
+    print("Next: run `make reconcile` so annotations follow any changed text.")
 
 
 if __name__ == "__main__":

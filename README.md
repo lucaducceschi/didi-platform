@@ -33,11 +33,23 @@ make dev      # Start PostgreSQL, the API and the frontend
 Open http://127.0.0.1:5180. The API runs on port 8010 and its documentation is at http://127.0.0.1:8010/docs. To change settings, copy `.env.example` to `.env`.
 
 ```bash
-make test     # Python and frontend tests; the corpus file is optional
-make e2e      # Browser tests against the real corpus, with `make dev` running
-              # First run only: npx --prefix frontend playwright install chromium
-make db-down  # Stop PostgreSQL; its data is kept
+make create-admin USERNAME=luca NAME="Your Name"   # Create the first account
+make test       # Python and frontend tests; needs Docker, the corpus file is optional
+make e2e        # Browser tests against a throwaway database; needs the corpus file
+                # First run only: cd frontend && npx playwright install chromium
+make db-down    # Stop PostgreSQL; its data is kept
 ```
+
+**Annotations are research data, so back them up.** Backups go to `data/backups/`, which git ignores, so copy them somewhere safe.
+
+```bash
+make db-backup
+make db-restore FILE=data/backups/didi_20260101_120000.dump   # Replaces the current data
+```
+
+After rebuilding the corpus, run `make reconcile`, so annotations follow any changed text. It never deletes anything: passages it can't place are marked as stale.
+
+The schema is documented in [`docs/coding/SCHEMA.md`](docs/coding/SCHEMA.md).
 
 **Analysis demo (Streamlit).**
 

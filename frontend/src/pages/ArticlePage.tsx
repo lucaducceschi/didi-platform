@@ -9,7 +9,7 @@ export function ArticlePage() {
   const location = useLocation()
   const navigate = useNavigate()
   // An article opened directly has no results page to go back to.
-  const goBack = () => (location.key === 'default' ? navigate('/') : navigate(-1))
+  const goBack = () => (location.key === 'default' ? navigate('/search') : navigate(-1))
   const { data: article, error, loading } = useApi((signal) => getArticle(id, signal), id)
 
   if (loading) return <p className="result-count">Loading article…</p>
@@ -18,7 +18,7 @@ export function ArticlePage() {
     return (
       <div>
         <p className="message message-error" role="alert">{notFound ? 'This article is not in the corpus.' : error.message}</p>
-        <Link to="/">Back to search</Link>
+        <Link to="/search">Back to search</Link>
       </div>
     )
   }

@@ -45,6 +45,7 @@ def main():
     print(f"Relabelled {len(changed)} articles")
     print(f"Scored {db.enrich_nlp_metrics()} articles")
     print(f"Exported {db.export_to_jsonl(PROCESSED / 'didi_corpus.jsonl', include_full_text=False)} JSONL rows")
+    print("Next: run `make reconcile` so annotations follow any changed text.")
 
 
 if __name__ == "__main__":

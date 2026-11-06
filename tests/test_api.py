@@ -12,8 +12,13 @@ real_corpus = pytest.mark.real_corpus
 skip_without_corpus = pytest.mark.skipif(not REAL_CORPUS.exists(), reason="private corpus not available")
 
 
-def test_health_reports_both_databases(client, test_database):
-    response = client.get("/api/health")
+def test_health_reports_both_databases(configure, fixture_corpus, test_database):
+    from fastapi.testclient import TestClient
+
+    from backend.app.main import app
+
+    configure(fixture_corpus)
+    response = TestClient(app).get("/api/health")
     assert response.status_code == 200
     assert response.json()["checks"] == {"database": "ok", "corpus": "ok"}
     assert response.json()["build"]["version"]
@@ -41,10 +46,17 @@ def test_health_fails_when_corpus_is_missing(configure, test_database, tmp_path)
     assert response.json()["checks"]["corpus"] == "unavailable"
 
 
-def test_migrations_run_on_empty_database(configure, fixture_corpus, test_database):
+def test_migrations_can_be_undone_and_reapplied(configure, fixture_corpus, test_database):
     configure(fixture_corpus)
     config = Config(str(Path(__file__).parent.parent / "backend" / "alembic.ini"))
+    command.downgrade(config, "base")
     command.upgrade(config, "head")
+
+
+def test_corpus_needs_a_login(world):
+    assert world.anonymous.get("/api/articles/search").status_code == 401
+    assert world.anonymous.get("/api/articles/fx_de_1").status_code == 401
+    assert world.anonymous.get("/api/corpus/summary").status_code == 401
 
 
 def test_search_finds_and_marks_matches(client):
@@ -113,15 +125,14 @@ def test_corpus_connection_is_read_only(fixture_corpus):
 
 @real_corpus
 @skip_without_corpus
-def test_real_articles_are_exact(configure):
+def test_real_articles_are_exact(world, monkeypatch):
     import unicodedata
 
-    from fastapi.testclient import TestClient
+    from backend.app.settings import get_settings
 
-    from backend.app.main import app
-
-    configure(REAL_CORPUS)
-    client = TestClient(app)
+    monkeypatch.setenv("DIDI_CORPUS_PATH", str(REAL_CORPUS))
+    get_settings.cache_clear()
+    client = world.coder
     connection = sqlite3.connect(f"{REAL_CORPUS.as_uri()}?mode=ro", uri=True)
     rows = connection.execute("SELECT id, full_text FROM articles").fetchall()
     connection.close()
@@ -136,13 +147,12 @@ def test_real_articles_are_exact(configure):
 @real_corpus
 @skip_without_corpus
 @pytest.mark.parametrize("query", ["autonomia", "scuola", "kompatscher", "Autonomie Statut", ""])
-def test_real_search_is_fast(configure, query):
-    from fastapi.testclient import TestClient
+def test_real_search_is_fast(world, monkeypatch, query):
+    from backend.app.settings import get_settings
 
-    from backend.app.main import app
-
-    configure(REAL_CORPUS)
-    client = TestClient(app)
+    monkeypatch.setenv("DIDI_CORPUS_PATH", str(REAL_CORPUS))
+    get_settings.cache_clear()
+    client = world.coder
     timings = []
     for _ in range(5):
         start = time.perf_counter()

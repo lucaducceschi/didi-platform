@@ -15,6 +15,7 @@ ENV/
 *.db-wal
 *.npy
 data/raw/
+data/backups/
 data/processed/*.db
 *.qdpx
 *.db-journal
