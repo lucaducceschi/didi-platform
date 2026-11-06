@@ -26,6 +26,51 @@ LADIN_MONTHS: Dict[str, int] = {
     "dezëmber": 12, "dezember": 12, "dicembre": 12
 }
 
+# Marker words shared with digi-rlf's sample_gold.py. The source's `region` is the region an
+# article is about, not the variety it is written in, so variety is read from the text.
+BADIOT_MARKERS = frozenset("le ince sön plü dles tles él gnü porsones".split())
+GHERDEINA_MARKERS = frozenset("l ie plu nce sun iel unì à àn".split())
+FASCIAN_HINT_RE = re.compile(r"\b(?:ence|dut|duc|sia|de la|te la|l['’][eèé]|i é|tel)\b", re.IGNORECASE)
+VARIETY_THRESHOLD = 0.6
+VARIETY_MIN_TOKENS = 30
+FASCIAN_HINT_RATE = 0.02
+
+
+def detect_badiot_or_gherdeina(text: str) -> Optional[str]:
+    """Return lld_badia or lld_gherd when the marker words clearly favour one, else None."""
+    tokens = re.findall(r"\w+['’]?", text)
+    if len(tokens) < VARIETY_MIN_TOKENS:
+        return None
+    badiot = gherdeina = 0
+    for token in tokens:
+        low = token.lower()
+        # ö/ü only in lowercase words: capitalised ones are often German names (Südtirol)
+        if low in BADIOT_MARKERS or (token.islower() and ("ö" in token or "ü" in token)):
+            badiot += 1
+        elif low in GHERDEINA_MARKERS:
+            gherdeina += 1
+    score = (badiot - gherdeina) / max(1, badiot + gherdeina)
+    if score > VARIETY_THRESHOLD:
+        return "lld_badia"
+    if score < -VARIETY_THRESHOLD:
+        return "lld_gherd"
+    return None
+
+
+def resolve_variety(text: str, region_language: str) -> Tuple[str, Dict[str, object]]:
+    """Correct a Badiot/Gherdëina region label from the text. Fascia and generic labels stay as they are."""
+    if region_language not in ("lld_badia", "lld_gherd"):
+        return region_language, {}
+    detected = detect_badiot_or_gherdeina(text)
+    if detected == region_language:
+        return region_language, {}
+    # The markers can't recognise Fascian, and would read it as Gherdëina, so don't relabel it.
+    looks_fascian = len(FASCIAN_HINT_RE.findall(text)) / max(1, len(text.split())) > FASCIAN_HINT_RATE
+    if detected is None or looks_fascian:
+        return region_language, {"variety_uncertain": True}
+    return detected, {"region_variety": region_language}
+
+
 REGION_TO_LANG: Dict[str, str] = {
     "gherdeina": "lld_gherd",
     "val-badia": "lld_badia",
@@ -124,7 +169,9 @@ class LaUscHarmonizer(BaseHarmonizer):
                 return None
 
             pub_date = self._parse_ladin_date(date_str, scraped_at)
-            language = self._detect_subvariety(url, data.get("region", ""))
+            language, variety_flags = resolve_variety(
+                cleaned_text, self._detect_subvariety(url, data.get("region", ""))
+            )
 
             breadcrumbs = []
             category = "Valedes Ladines"
@@ -207,7 +254,7 @@ class LaUscHarmonizer(BaseHarmonizer):
                     continue
 
                 pub_date = self._parse_ladin_date(date_str, scraped_at)
-                language = self._detect_subvariety(url, region)
+                language, variety_flags = resolve_variety(cleaned_text, self._detect_subvariety(url, region))
 
                 breadcrumbs = [b.strip() for b in themes.split(",") if b.strip()] if themes else []
                 category = breadcrumbs[0] if breadcrumbs else (region.capitalize() if region else "Valedes Ladines")
@@ -240,6 +287,7 @@ class LaUscHarmonizer(BaseHarmonizer):
                             "tags": tags,
                             "themes": themes,
                             "scraped_at": scraped_at,
+                            **variety_flags,
                         },
                     )
                 )
