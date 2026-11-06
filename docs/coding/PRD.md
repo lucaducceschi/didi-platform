@@ -1,186 +1,129 @@
-# PRD: DIDI Full-Stack Platform and Text Coding (Phase 3.1)
+# PRD: DIDI Annotation Workbench (Phase 3.1)
 
-**Status:** Direction agreed, not started. Created 2026-11-06.
+**Status:** Direction agreed, not started. Updated 2026-11-06.
 
-**Goal:** Turn DIDI from a Streamlit demo into a React and Python web app with databases, and make its first feature text coding for up to 10 annotators, so the project no longer depends on a MAXQDA licence and its data stays fully exportable.
+**Goal:** Turn DIDI from a Streamlit demo into a web app where different researchers run their own annotation work on the shared corpus, as researchers do in the Speech Workbench, without needing a MAXQDA licence and with all data exportable.
 
-## 1. Scope
+**Development is local for now.** Where the app will be hosted is undecided; a new Azure or Foundry-based setup is possible but not certain. This document therefore sets out product behavior and data rules, and treats technical choices as working assumptions.
+
+## 1. How researchers work
+
+Up to 10 researchers use one app and one corpus, but they don't all do the same job. One may study autonomy framing in German and Italian with one codebook, while another codes language rights in Ladin with a different one.
+
+| Speech Workbench pattern | What it means in DIDI |
+|---|---|
+| Sign in with your own account | Individual logins, so every annotation has a known author |
+| Library of documents showing status and who worked on them | A project library of articles, with each coder's status and counts |
+| Each user's work is stored separately, so nobody overwrites anyone | Each coded passage belongs to one researcher, and only they can change it |
+| Presence banner instead of locks | "Anna is also working on this article"; nothing is ever blocked |
+| Version check when saving shared data (409 on conflict) | Codebook edits and repeated edits to a segment are checked, so a stale screen can't overwrite newer work |
+| Activity and audit log | A record of codebook and project changes |
+| Gold-standard review as a later stage | Consensus and adjudication come in a later phase, but the data must allow them |
+
+**Projects are the core concept.** A project has a name, a research question, members, its own codebook and its own set of articles. A researcher can be a lead in one project and a coder in another. An article can belong to several projects without any conflict.
+
+## 2. Scope
 
 | # | Delivered in this phase | Replaces today |
 |---|---|---|
-| 0 | React frontend, Python API, PostgreSQL, tests, container and CI files | Streamlit only |
-| 1 | Coder accounts and shared codebook: create, nest, rename, merge, define codes | Free-text analyst name; one flat tag per quote |
-| 2 | Article reader with coded passages highlighted | Notes listed under the article |
-| 3 | Select text and code it directly | Pasting quotes, with no positions stored |
+| 0 | Local React, Python API and database skeleton, with corpus search | Streamlit only |
+| 1 | Accounts, projects and per-project codebooks: create, nest, rename, merge, define codes | Free-text analyst name; one flat tag per quote |
+| 2 | Project library and article reader, with coded passages highlighted | Notes listed under the article |
+| 3 | Select text and code it directly, with presence and per-article progress | Pasting quotes, with no positions stored |
 
 ### Not in this phase
 
 The design must not block these, but do not build them:
 
-- Porting the Radar, Timeline, Focus Events and Keyness views. **Streamlit stays as the analysis demo** until they are ported.
+- Hosting, cloud services and production deployment
+- Porting the Radar, Timeline, Focus Events and Keyness views. **Streamlit stays as the analysis demo** until they are ported
+- Assigning articles to specific people
 - Cross-article retrieval of segments by code
-- Inter-coder agreement (Krippendorff's alpha, disagreement review)
+- Inter-coder agreement, adjudication and gold-standard coding
 - QDPX export of coded segments, and QDPX import
 - PDF, audio, video or image coding
-- Any GPU service
-- The actual first deploy, which needs the Admin (Section 11)
+- AI assistance and GPU services
 
 ### Rules that apply throughout
 
-- **Multi-coder from the start.** Every segment belongs to one coder, and only that coder can change it. The server enforces this.
+- **Ownership.** Only a segment's author can change it, and the server enforces this.
+- **Exact text.** `articles.full_text` is never modified, trimmed or normalized, because positions refer to it.
 - **Open data.** Everything stored can be exported as CSV, and the schema is documented.
-- **No external calls.** No CDN, web fonts or analytics. The app must work without internet access on its network.
+- **No third-party calls from the browser.** No CDN, web fonts or analytics.
 - **Copyright.** Full text, databases and exports never reach the public `origin` remote.
-- **Shared platform.** Follow the LT Developer Handbook (`commul/lt-developer-handbook` on `gitlab.inf.unibz.it`, read with `glab`). It is binding wherever it applies.
+- **Stay portable.** Keep hosting options open (Section 11).
 
-## 2. Target architecture
+## 3. Working assumptions
 
-```
-Browser ── React + TypeScript (Vite, Zustand), served by nginx ─┐  FE Server
-                                                                │
-                                                     /api/ proxy
-                                                                │
-           FastAPI (Python) ────────────────────────────────────┘  FE Server, CPU only
-             ├── PostgreSQL: users, codes, annotations (read-write)
-             ├── SQLite FTS5 corpus: articles, metrics (read-only, rebuilt by the pipeline)
-             └── Inference client, added later ──> GPU service on the VPN (GPU VM)
-```
+These reflect current decisions. They are not locked: if one causes real trouble, propose an alternative and say why.
 
-| Part | Choice | Why |
+| Part | Assumption | Why |
 |---|---|---|
-| Frontend | React 19, TypeScript, Vite, Zustand, oxlint | Matches `speech-workbench/frontend`, so the team and its patterns carry over |
-| API | FastAPI, Uvicorn, Pydantic | Typed, with generated API docs. Do not copy the Workbench's hand-written `http.server` backend |
-| App data | PostgreSQL with SQLAlchemy 2 and Alembic (decided 2026-11-06) | Up to 10 concurrent writers and live research data, so start here rather than migrate later |
-| Corpus | Existing SQLite FTS5 file, read-only | It is a rebuildable artifact, and FTS5 already meets the search needs |
-| Deploy | GitLab CI, kaniko, Komodo, Traefik | Required by the handbook |
+| Frontend | React with TypeScript and Vite | Requested, and matches the Speech Workbench |
+| API | Python with FastAPI | Reuses the existing Python code, and is easy to run anywhere |
+| App data | PostgreSQL | Agreed. Suits concurrent research data, and is widely available as a managed service |
+| Corpus | The existing SQLite FTS5 file, read-only | A rebuildable artifact that already meets search needs. Can move into PostgreSQL later |
 
-**Reuse from the current repo:**
+Reuse `src/ui/data_service.py`, which has no Streamlit dependency, along with `src/harmonizers/`, `src/storage/`, `src/nlp/` and the `qdpx` writer. Keep the Streamlit demo working.
 
-- `src/ui/data_service.py` has no Streamlit dependency, so the API can call it. Move it to `src/services/` in Task 0, with a thin import left for Streamlit. Its annotation methods are replaced in Task 1.
-- `src/harmonizers/`, `src/storage/`, `src/nlp/` and the `qdpx` writer stay as they are.
+## 4. Verified technical basis
 
-**Repository layout**
-
-```
-backend/app/      FastAPI app: routers, schemas, models, auth
-backend/alembic/  Migrations
-frontend/         React app
-src/              Existing pipeline and services
-src/ui/           Streamlit demo, unchanged until views are ported
-docker/           Dockerfile.backend, Dockerfile.frontend, nginx.conf.template
-tests/            Python tests
-```
-
-## 3. Verified technical basis
-
-Measured in a browser on 2026-11-06. The code is in [`spike/`](spike/). It ran in a Streamlit component, but the position logic is plain browser JavaScript and carries over to React. Task 2 must re-verify it in React.
+Measured in a browser on 2026-11-06. The code is in [`spike/`](spike/). It ran in a Streamlit component, but the position logic is plain browser JavaScript. Task 2 must re-verify it in React.
 
 | Finding | Consequence |
 |---|---|
 | Browser offsets count UTF-16 units, while Python and REFI-QDA count code points | Convert with `Array.from`, in one module only |
 | Offsets matched Python slices for emoji, NFD combining characters, CRLF, Markdown-like text and selections crossing highlight spans | One container with `white-space: pre-wrap` and spans holding the raw text is safe |
-| A mouse drag included a trailing space (`'Plain text with target '`) | The server trims whitespace from selections and recalculates positions |
+| A mouse drag included a trailing space | The server trims whitespace from selections and recalculates positions |
 
 The corpus contains these cases: 1,401 articles are not NFC-normalized, 4 contain characters outside the Basic Multilingual Plane, 3 contain `\r`, and 216 contain Markdown-active characters.
 
-## 4. Database
+## 5. Data model
 
-Managed through Alembic migrations.
+This is the logical model. Exact types and migrations are up to the implementer, as long as the constraints below hold.
 
-```sql
-CREATE TABLE users (
-    id UUID PRIMARY KEY,
-    username TEXT NOT NULL,
-    display_name TEXT NOT NULL,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('lead', 'coder')),
-    active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL
-);
-CREATE UNIQUE INDEX idx_users_username ON users (lower(username));
-
-CREATE TABLE sessions (
-    token_hash TEXT PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id),
-    created_at TIMESTAMPTZ NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL
-);
-
-CREATE TABLE codes (
-    id UUID PRIMARY KEY,
-    name TEXT NOT NULL,
-    parent_id UUID REFERENCES codes(id),
-    definition TEXT NOT NULL DEFAULT '',
-    color TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    merged_into UUID REFERENCES codes(id),
-    created_by UUID NOT NULL REFERENCES users(id),
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL
-);
-CREATE UNIQUE INDEX idx_codes_active_name
-    ON codes (COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'), lower(name))
-    WHERE merged_into IS NULL;
-
-CREATE TABLE annotations (
-    id UUID PRIMARY KEY,
-    article_id TEXT NOT NULL,
-    text_sha256 TEXT NOT NULL,
-    start_pos INTEGER NOT NULL,
-    end_pos INTEGER NOT NULL,
-    quote TEXT NOT NULL,
-    code_id UUID NOT NULL REFERENCES codes(id),
-    user_id UUID NOT NULL REFERENCES users(id),
-    memo TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'stale')),
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    CHECK (start_pos >= 0 AND start_pos < end_pos),
-    UNIQUE (article_id, start_pos, end_pos, code_id, user_id)
-);
-CREATE INDEX idx_annotations_article ON annotations (article_id, user_id);
-CREATE INDEX idx_annotations_code ON annotations (code_id);
-
-CREATE TABLE codebook_events (
-    id BIGSERIAL PRIMARY KEY,
-    occurred_at TIMESTAMPTZ NOT NULL,
-    user_id UUID NOT NULL REFERENCES users(id),
-    action TEXT NOT NULL,
-    code_id UUID NOT NULL,
-    details JSONB NOT NULL DEFAULT '{}'
-);
-```
+| Table | Key fields | Constraints |
+|---|---|---|
+| `users` | username, display name, password hash, is_admin, active | Username unique, ignoring case |
+| `projects` | name, description, archived, created by | Name unique, ignoring case |
+| `project_members` | project, user, role (`lead` or `coder`) | One role per user per project |
+| `project_articles` | project, article_id, added by, added at | One row per article per project |
+| `article_progress` | project, article_id, user, status (`in_progress` or `done`), updated at | One row per user per article per project; no row means not started |
+| `codes` | project, name, parent, definition, color, sort order, merged_into, revision | Active names unique among siblings, ignoring case |
+| `annotations` | project, article_id, user, code, start_pos, end_pos, quote, text_sha256, memo, status (`active` or `stale`), revision, timestamps | `start_pos < end_pos`; unique on project, article, span, code and user |
+| `presence` | project, article_id, user, last_seen | One row per user per article per project |
+| `activity_log` | time, user, project, action, target, details | Append only |
 
 **Conventions**
 
 - Positions are 0-based Unicode code points with an **exclusive end**, so `full_text[start_pos:end_pos] == quote` in Python. REFI-QDA export converts positions later, in its own code.
-- `articles.full_text` is the only source of positions. Never normalize it.
 - `text_sha256` is the SHA-256 of the UTF-8 `full_text` at coding time.
 - A passage with two codes is two rows.
-- `article_id` is not a database foreign key, because articles live in the corpus file. Validate it in the API.
-- The old `article_annotations` table in the corpus DB has 0 rows and is not migrated.
+- `article_id` refers to the corpus file, so validate it in the API.
+- `revision` increases on each update. An update sending an old revision gets a conflict response and changes nothing.
+- The old `article_annotations` table has 0 rows and is not migrated.
 
-**Seed data:** when `codes` is empty, create the current presets as a tree by splitting at `:`. For example, `Autonomy:Competences` becomes `Autonomy` > `Competences`. Leave out `Custom Tag`.
+## 6. Accounts and permissions
 
-## 5. Accounts and permissions
+- Individual accounts with hashed passwords (use a current algorithm such as Argon2), and sessions in `HttpOnly` cookies with a sensible expiry. Limit login attempts.
+- No self-signup. A CLI command creates the first admin, and admins add, reset and deactivate users. Deactivated users keep their segments and lose access.
+- **Keep identity in one place.** All routes get the current user from a single dependency, so institutional login such as Microsoft Entra ID could replace passwords later without touching the rest of the app.
 
-- **Individual accounts.** The Workbench's shared team password can't work here, because segments need a provable owner.
-- Passwords are hashed with Argon2. Sessions are random tokens stored hashed, sent as an `HttpOnly`, `Secure`, `SameSite=Lax` cookie, and expire after 12 hours. Limit login attempts per username and IP address.
-- There is no self-signup. A CLI command creates the first lead, and leads then add, reset and deactivate users in the UI. Deactivated users keep their segments and lose access.
-- Every API route except `/api/health` and `/api/auth/login` requires a session.
+| Action | Coder | Project lead | Admin |
+|---|---|---|---|
+| See a project's articles, codebook and segments | Members | Members | All |
+| Add segments, and edit or delete own segments | Yes | Yes | If a member |
+| Edit or delete another user's segments | No | No | No |
+| Create a code | Yes | Yes | If a member |
+| Edit, rename, move, merge or delete a code | No | Yes | If a lead |
+| Add articles and manage members | No | Yes | All |
+| Export the project's data | Yes | Yes | All |
+| Create projects | No | No | Yes |
+| Manage users | No | No | Yes |
 
-| Action | Coder | Lead |
-|---|---|---|
-| Read articles and the codebook | Yes | Yes |
-| Add segments, and edit or delete own segments | Yes | Yes |
-| Edit or delete another user's segments | No | No |
-| See other coders' segments | Yes | Yes |
-| Create a code | Yes | Yes |
-| Edit, rename, move, merge or delete a code | No | Yes |
-| Manage users | No | Yes |
-| Export all data as CSV | Yes | Yes |
+## 7. Codebook rules
 
-## 6. Codebook rules
+Each project has its own codebook. A new project can start empty, copy another project's codebook, or use a starter set built from the current presets by splitting at `:` (so `Autonomy:Competences` becomes `Autonomy` > `Competences`, leaving out `Custom Tag`).
 
 | Operation | Rule |
 |---|---|
@@ -196,130 +139,116 @@ CREATE TABLE codebook_events (
 2. If that would duplicate a segment for the same span and coder, keep B's row. If the memos differ, append A's memo to it.
 3. Re-parent A's children to B.
 4. Set `A.merged_into = B`.
-5. Write a `codebook_events` row listing the moved segment IDs, so a merge can be reconstructed by hand.
+5. Log the moved segment IDs in `activity_log`, so a merge can be reconstructed by hand.
 
-**Stale screens:** another coder may still have a merged code selected. When saving, follow `merged_into` to the current code, and say so in the response so the UI can tell the coder. Hide merged codes from pickers. Log every codebook change in `codebook_events`.
+**Stale screens:** another coder may still have a merged code selected. When saving, follow `merged_into` to the current code, and tell the coder. Hide merged codes from pickers.
 
-## 7. API
+## 8. Screens and flow
 
-```
-GET    /api/health                        status and build version; 200 only if both databases respond
-POST   /api/auth/login | /api/auth/logout
-GET    /api/me
-GET    /api/users  POST /api/users  PATCH /api/users/{id}        lead only
-GET    /api/articles/search               query, filters, pagination
-GET    /api/articles/{id}                 metadata, metrics and exact full_text
-GET    /api/codes  POST /api/codes
-PATCH  /api/codes/{id}  DELETE /api/codes/{id}
-GET    /api/codes/{id}/merge-preview?into={id}
-POST   /api/codes/{id}/merge
-GET    /api/articles/{id}/annotations     ?scope=mine|all
-POST   /api/articles/{id}/annotations     body: start, end, code_id, memo
-PATCH  /api/annotations/{id}  DELETE /api/annotations/{id}
-GET    /api/exports/annotations.csv  GET /api/exports/codes.csv
-```
+- **Login.**
+- **Projects:** the projects you belong to, with your progress in each. Admins can create projects and manage users.
+- **Project library:** the project's articles, filterable by variety, source and status, showing who has worked on each and how many segments they made. This mirrors the Workbench's library.
+- **Add articles:** corpus search with filters. Add selected results, or all matches, to the project.
+- **Reader:** metadata, article text, the coding panel, and a list of visible segments grouped by code.
+- **Codebook:** tree with segment counts, definitions and the Section 7 operations.
+- **Project activity:** recent codebook and project changes.
+
+**Coding**
+
+1. Open an article from the library.
+2. Select text. The panel shows the trimmed quote, a searchable code picker with definitions, a "new code" field and a memo field.
+3. Save. The highlight appears without losing scroll position, and the panel clears.
+4. Mark the article done when finished. It can be reopened.
+
+Clicking a highlight opens that segment. Its owner can change the code, edit the memo or delete it, with confirmation; others see it read-only.
+
+**Working alongside others**
+
+- A **Mine** / **All coders** toggle defaults to **Mine**, so researchers aren't influenced by each other.
+- A banner shows who else has the article open, with a heartbeat every 30 seconds and a 90-second timeout. It never blocks anyone.
 
 **Saving a segment:** the server loads `full_text`, trims whitespace from the selection, recalculates positions, takes the quote from the text, and computes the hash. It never trusts text sent by the browser. An identical existing segment returns the existing one rather than an error.
 
-Keep routers thin, with logic in services. The corpus connection is read-only (`mode=ro`). Search must stay under 200 ms, as `AGENTS.md` requires.
+**Reader rendering**
 
-## 8. Frontend
-
-**Reader**
-
-- `segmentText(text, highlights)`: a pure function that splits text at code-point boundaries, handling overlap, nesting, identical spans and touching segments.
-- `selectionToCodePoints(range, root)`: the only place that converts browser offsets.
 - Render one container with `white-space: pre-wrap`, with spans carrying `data-start` and raw text as React children. Never use `dangerouslySetInnerHTML`. The spans' concatenated text must equal `full_text` exactly.
-- Ignore selections that are collapsed, or start or end outside the reader.
-- Colors must stay legible in light and dark themes. Mark overlaps with a stronger underline, list all codes in a tooltip, and show other coders' segments as a dashed underline without fill.
+- Do the browser-offset conversion in one function, and ignore selections that are collapsed, or start or end outside the reader.
+- Colors must stay legible in light and dark themes. Mark overlaps with a stronger underline and list all codes in a tooltip. Show other coders' segments as a dashed underline without fill.
 
-**Screens**
-
-- **Login.**
-- **Search:** query, source and variety filters, paginated results with snippets. Clicking a result opens it in the reader.
-- **Reader:** metadata, article text, a coding panel and a list of visible segments grouped by code. A **Mine** / **All coders** toggle defaults to **Mine**, so coders aren't influenced by each other when double-coding. Stale segments are listed, not highlighted.
-- **Codebook:** tree with segment counts, definitions and the Section 6 operations. Definitions also appear in the code picker.
-- **Users:** lead only.
-
-**Coding flow**
-
-1. Select text in the reader.
-2. The panel shows the trimmed quote, a searchable code picker, a "new code" field and a memo field.
-3. Save. The highlight appears without losing scroll position, and the panel clears.
-
-Clicking a highlight opens that segment. Its owner can change the code, edit the memo or delete it, with confirmation; others see it read-only. All interface text is in English for now, and strings should be easy to translate later, because users work in German, Italian and Ladin contexts.
+All interface text is in English for now, in a form that's easy to translate later.
 
 ## 9. Text changes and rebuilds
 
-Add `reconcile_annotations`, run by a CLI command after any corpus rebuild. For each annotation whose `text_sha256` no longer matches:
+Add a `reconcile_annotations` command to run after any corpus rebuild. For each annotation whose `text_sha256` no longer matches:
 
 - If `quote` occurs exactly once in the new text, update the positions and hash.
 - Otherwise set `status = 'stale'` and keep the row. An article missing from the corpus also makes its segments stale.
 
-Stale segments are never silently deleted. `scripts/rebuild_salto.py` and `scripts/run_harmonization.py` must print a reminder to run this. Because annotations live in PostgreSQL, rebuilding the corpus can't delete them.
+The reader lists stale segments instead of highlighting them. They are never silently deleted. Corpus rebuild scripts print a reminder to run this command.
 
 ## 10. Testing
 
-- **Python:** `pytest` against a real PostgreSQL instance, not SQLite. Cover every Section 5 and 6 rule at the API level, including a coder being refused on another coder's segment and on lead-only routes.
-- **Concurrency:** 10 clients each write 50 segments plus codebook changes, with no lost writes.
-- **Frontend:** Vitest for `segmentText` and `selectionToCodePoints`.
+- **API:** `pytest` against a real PostgreSQL instance. Cover every permission in Section 6 by calling the API directly, including a coder refused on another's segment, and a non-member refused on a project.
+- **Isolation:** projects can't see each other's codes, segments or members.
+- **Concurrency:** 10 clients each write 50 segments plus codebook changes, with no lost writes. A stale revision gets a conflict.
+- **Frontend:** unit tests for splitting text at highlights and for offset conversion.
 - **Browser:** Playwright with real corpus cases: non-NFC, emoji, CRLF, Markdown characters and a 4,000-word article. After a selection, `full_text[start:end]` must equal the selected text.
-- **CI:** tests run without GPUs, secrets or the copyrighted corpus, so use a small synthetic fixture corpus committed to the repo. Tests using the real corpus are marked and skipped when it is absent.
+- **Fixtures:** tests run without the copyrighted corpus, using a small synthetic fixture committed to the repo. Tests using the real corpus are marked and skipped when it is absent.
 
-## 11. Deployment
+## 11. Local development and portability
 
-**Prepare in this phase, following the handbook:** `docker/Dockerfile.backend`, `docker/Dockerfile.frontend` and `docker/nginx.conf.template`; registry-image compose files; `.gitlab-ci.yml`; `.env.example`; `/api/health` with build version; memory limits; pinned dependencies and a pinned PostgreSQL image; `docker-compose.dev.yml` for local work.
+**Now:** one documented command starts the app locally, using PostgreSQL in Docker and the existing corpus file. All tests run with one command. Document how to back up and restore the database, because annotations are research data from day one.
 
-**Needs the Admin, so don't do it without Luca:**
+**To keep hosting open:**
 
-- Moving or mirroring the project to a `commul/...` GitLab project. CI may be disabled on the current personal project.
-- The app name and URL path, Komodo stacks, data folders, secrets and the first deploy (the "New app" issue).
+- All settings come from environment variables, with `.env.example` documenting them. No hostnames, paths or secrets in code.
+- Plain PostgreSQL features only, and standard containers when the time comes.
+- No cloud-specific SDKs in application code.
+- Any future AI or GPU feature sits behind a small HTTP client and is optional, so the app keeps working without it. It could be a local service or a hosted model. Sending corpus text to a hosted model raises the copyright question in Section 14.
 
-**Compose rules from the handbook:** no `./data` paths. The corpus file comes from an absolute folder set by the Admin, and PostgreSQL uses a named volume or Admin-set folder. Nobody pushes app images by hand.
-
-**Open questions before hosting**
-
-- May copyrighted full text be served to 10 logged-in users on this infrastructure? Check with Eurac or unibz.
-- `scripts/sync_remotes.sh` pushes data to a personal GitLab branch. Decide where the corpus lives once the project is under `commul/`.
+Don't write production Dockerfiles, CI or infrastructure code in this phase.
 
 ## 12. Build order
 
 | Task | Prompt | Depends on | Estimate |
 |---|---|---|---|
-| 0. Platform skeleton | [`prompts/0_platform_skeleton.md`](prompts/0_platform_skeleton.md) | Nothing | 3–4 days |
-| 1. Accounts and codebook | [`prompts/1_accounts_and_codebook.md`](prompts/1_accounts_and_codebook.md) | Task 0 | 1.5 weeks |
-| 2. Reader and highlights | [`prompts/2_reader_and_highlights.md`](prompts/2_reader_and_highlights.md) | Task 1 | 3–4 days |
+| 0. Local skeleton | [`prompts/0_local_skeleton.md`](prompts/0_local_skeleton.md) | Nothing | 2–3 days |
+| 1. Accounts, projects and codebook | [`prompts/1_accounts_projects_codebook.md`](prompts/1_accounts_projects_codebook.md) | Task 0 | 2 weeks |
+| 2. Library, reader and highlights | [`prompts/2_library_and_reader.md`](prompts/2_library_and_reader.md) | Task 1 | 1 week |
 | 3. Select and code | [`prompts/3_select_and_code.md`](prompts/3_select_and_code.md) | Task 2 | 1 week |
 
-Estimates are judgments for one developer, not measurements. Annotators should try the result after Task 3, before any later phase is planned.
+Estimates are judgments for one developer, not measurements. Researchers should try the result after Task 3, before any later phase is planned.
 
 ## 13. Acceptance criteria for the phase
 
-1. A coder logs in, selects text in German, Italian and Ladin articles, assigns a code, reloads the page, and sees the same exact passage highlighted.
-2. Two coders work on the same article at once, and neither loses work. Each sees **Mine** by default and both under **All coders**.
-3. A coder can't change another coder's segments or use lead-only routes, even by calling the API directly.
-4. A lead nests, renames and merges codes, and segments follow correctly, including while another session has the merged code selected.
-5. A corpus rebuild leaves all annotations intact, and changed text produces re-anchored or stale segments, never silent loss.
-6. All annotations and codes can be exported as CSV.
-7. All tests pass in CI conditions, the containers build and report healthy locally, and the browser makes no external requests.
+1. Two researchers with separate projects and codebooks work on the same article, and neither sees the other's project.
+2. A researcher selects text in German, Italian and Ladin articles, assigns a code, reloads the page, and sees the same exact passage highlighted.
+3. Two coders in one project work on the same article at once, see the presence banner, and neither loses work. Each sees **Mine** by default and both under **All coders**.
+4. A coder can't change another coder's segments or use lead-only actions, even by calling the API directly.
+5. A lead nests, renames and merges codes, and segments follow correctly, including while another session has the merged code selected.
+6. The library shows the correct status and counts per coder.
+7. A corpus rebuild leaves all annotations intact, and changed text produces re-anchored or stale segments, never silent loss.
+8. All of a project's annotations and codes can be exported as CSV.
+9. All tests pass, the browser makes no third-party requests, and the Streamlit demo still runs.
 
 ## 14. Later phases
 
-1. **First deploy** on the FE Server, once the Section 11 questions are settled.
-2. **Port the analysis views** from Streamlit, then retire it, about 2–3 weeks (estimate).
-3. **Retrieval:** all segments by code, variety, source or coder, across articles.
-4. **Agreement:** double-coding assignments, Krippendorff's alpha and disagreement review.
-5. **Exchange:** port the QDPX export, add coded segments and import, and confirm the end-position convention by test against a REFI-QDA tool.
-6. **GPU service:** embeddings, Stanza and the Ladin pipeline, and possibly an LLM, as a separate image on the GPU VM, built from the handbook's `web-and-gpu` template.
-   - The API calls it over HTTP with timeouts, and must keep working without it. No `torch` in the API image.
-   - The T4 has 16 GB shared with other services, so agree a memory budget and port with the Admin. The 17–20 GB models considered earlier for synthesis would not fit.
-   - Hybrid search currently needs a local encoder socket, so it stays off until this exists.
+Order to be decided after researchers try Task 3.
 
-## 15. Decisions with defaults
+- **Hosting:** where it runs, login method and backups. Before hosting, check whether full text may be served to up to 10 users, or sent to a hosted model.
+- **Port the analysis views**, then retire Streamlit (about 2–3 weeks, estimated).
+- **Assignments:** leads assign articles to coders.
+- **Retrieval:** all segments by code, variety, source or coder, across articles.
+- **Agreement and gold standard:** double-coding, Krippendorff's alpha, adjudication and an approved consensus version, as in the Workbench's gold stage.
+- **Exchange:** port the QDPX export, add coded segments and import, and confirm the end-position convention by test against a REFI-QDA tool.
+- **AI assistance:** optional and behind the HTTP client in Section 11.
 
-These don't block Task 0.
+## 15. Open questions
+
+These have working defaults, so they don't block Task 0.
 
 | Question | Default |
 |---|---|
-| Will coders double-code the same articles? | The design supports it, and **Mine** is the default view |
-| Should only leads rename, merge and delete codes? | Yes |
+| Does each researcher need their own codebook, or do teams share one? | One codebook per project, so both work: put people in the same project or in different ones |
+| How will researchers try it before hosting is decided? | Luca runs it on one machine for a supervised session, which needs no hosting |
+| Should coders in a project see each other's work at all? | Yes, with **Mine** as the default. A lead-controlled blind mode can come with the agreement phase |
