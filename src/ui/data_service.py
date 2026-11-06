@@ -7,7 +7,7 @@ and pandas transformations.
 import json
 import re
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -698,6 +698,21 @@ class DataService:
     def get_focus_events(self) -> Dict[str, Any]:
         """Return registry of historical regional focus events."""
         return FOCUS_EVENTS
+
+    def get_focus_event_coverage(self, event_date_str: str, window_days: int = 30) -> Dict[str, int]:
+        """Count articles per language group inside an event's pre/post window."""
+        event_date = datetime.fromisoformat(event_date_str).date()
+        start = (event_date - timedelta(days=window_days)).isoformat()
+        end = (event_date + timedelta(days=window_days)).isoformat()
+        with self._get_connection() as conn:
+            row = conn.execute("""
+                SELECT COALESCE(SUM(language = 'de'), 0) AS de,
+                       COALESCE(SUM(language = 'it'), 0) AS it,
+                       COALESCE(SUM(language LIKE 'lld%'), 0) AS lld
+                FROM articles
+                WHERE substr(publish_date, 1, 10) >= ? AND substr(publish_date, 1, 10) < ?
+            """, (start, end)).fetchone()
+        return dict(row)
 
     def analyze_focus_event(
         self,

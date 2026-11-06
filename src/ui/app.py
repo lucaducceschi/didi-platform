@@ -189,7 +189,7 @@ def main():
 
     # App Header
     st.markdown('<h1 class="main-header">⚖️ DIDI Platform: Mixed-Methods Media Research Workbench</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header"><b>Eurac Research</b> (Minority Rights & Autonomy Experience) & <b>University of Innsbruck</b> | 12,624 Articles (2017–2026)</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header"><b>Eurac Research</b> (Minority Rights & Autonomy Experience) & <b>University of Innsbruck</b> | 12,220 Articles (2017–2026)</p>', unsafe_allow_html=True)
 
     filters = render_sidebar(service)
 
@@ -591,6 +591,11 @@ def main():
 
         event_info = events[selected_event_key]
         st.info(f"**Context ({selected_event_key}):** {event_info['description']}")
+
+        coverage = service.get_focus_event_coverage(selected_event_key, window_days)
+        if coverage["de"] + coverage["it"] <= 1:
+            st.warning("**Ladin-only event:** the corpus has almost no German or Italian articles in this window, so it cannot support a cross-language comparison.")
+        st.caption(f"Articles in this window: German {coverage['de']} · Italian {coverage['it']} · Ladin {coverage['lld']}")
 
         # Compute Event Analysis
         analysis = service.analyze_focus_event(
