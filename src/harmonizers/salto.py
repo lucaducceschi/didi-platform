@@ -20,10 +20,18 @@ logger = logging.getLogger("SaltoHarmonizer")
 
 _FOOTER_RE = re.compile(r"\s*(?:Kontakt|Contatti)\s*\+39\s*0471.*?ISSN.*\Z", re.DOTALL)
 _WORD_RE = re.compile(r"\w+")
+_BYLINE_DATE_RE = re.compile(r"\s*\d{2}\.\d{2}\.\d{4}\s*$")
+_BYLINE_GENRE_RE = re.compile(r"^(?:eine?|una?)\s+\w+\s+(?:von|di)\s+", re.IGNORECASE)
 _DE_WORDS = frozenset("der die das und ist nicht mit für auf von den dem ein eine auch sich wird im zu des als".split())
 _IT_WORDS = frozenset("il la che di per con non una della del sono è le dei nel alla anche un si".split())
 _MIN_EVIDENCE = 5  # below this many function words, flag the label as uncertain
 _MIXED_RATIO = 1 / 3  # minority/majority share above which a text counts as bilingual
+
+
+def clean_author(byline: str) -> str:
+    """Reduce a Salto byline such as "Eine Kolumne von Name 18.03.2025" to the author's name."""
+    author = _BYLINE_DATE_RE.sub("", byline or "").strip()
+    return _BYLINE_GENRE_RE.sub("", author).strip() or "Redaktion"
 
 
 def detect_language(text: str, fallback: str) -> tuple[str, dict]:
@@ -89,7 +97,8 @@ class SaltoHarmonizer(BaseHarmonizer):
 
         article_id = f"salto_{url_lang}_{pub_date.strftime('%Y%m%d')}_{slug}"
         category = record.get("category", "News")
-        author = record.get("author", "Redaktion")
+        byline = record.get("author", "Redaktion")
+        author = clean_author(byline)
 
         return DIDIArticle(
             id=article_id,
@@ -105,6 +114,7 @@ class SaltoHarmonizer(BaseHarmonizer):
             metadata={
                 "lead": record.get("lead", ""),
                 "author": author,
+                "byline": byline,
                 "url": url,
                 "url_language": url_lang,
                 **language_flags,
