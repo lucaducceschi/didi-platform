@@ -64,7 +64,7 @@ All frontend code for the research demo lives in `src/ui/`:
 ## 4. Current Milestone & Status Tracker
 
 Reference [`docs/PRD.md`](docs/PRD.md#6-one-week-implementation-plan-day-by-day) for detailed task specifications:
-- [x] **Core Ingestion & NLP:** 12,624 articles (2.77M tokens) harmonized into `data/processed/didi_corpus.db`.
+- [x] **Core Ingestion & NLP:** 12,220 articles (2.57M tokens) harmonized into `data/processed/didi_corpus.db`.
 - [x] **Stanza MFD 2.0 Engine:** Lexicons compiled and validated for `de`, `it`, and `lld` (`assets/mfd_compiled_lemmas.json`).
 - [x] **Day 1: Data Service & App Shell:** Create `src/ui/data_service.py` and initial `src/ui/app.py` skeleton.
 - [x] **Day 2: View 1 (Explorer):** FTS5 search, facet filters, paginated snippet cards.

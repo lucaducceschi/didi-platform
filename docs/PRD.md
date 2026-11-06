@@ -37,7 +37,7 @@ The **DIDI Workbench** is a unified computational research platform designed spe
 ## 3. Existing Technical Assets & Foundation
 
 The platform builds directly upon pre-existing, tested computational assets:
-- **Corpus Database ([`data/processed/didi_corpus.db`](data/processed/didi_corpus.db)):** 12,624 articles, 2,765,436 tokens (2017–2026) across 5 linguistic varieties (`lld_gherd`, `lld_badia`, `lld_fascia`, `de`, `it`) with active SQLite FTS5 search.
+- **Corpus Database ([`data/processed/didi_corpus.db`](data/processed/didi_corpus.db)):** 12,220 articles, 2,567,181 tokens (2017–2026) across 5 linguistic varieties (`lld_gherd`, `lld_badia`, `lld_fascia`, `de`, `it`) with active SQLite FTS5 search.
 - **Quantitative Metrics Pipeline:** Pre-computed `article_nlp_metrics` table with lexical diversity (TTR, Root TTR, Herdan's $C$, Hapax ratio), NRC discrete emotions, and 10-pole Moral Foundations Theory densities ($[0, \infty)$ per 1,000 words, plus net moral valence $[-1.0, +1.0]$).
 - **Stanza MFD 2.0 Lexicon Engine:** Curated and Stanza-disambiguated dictionaries for German, Italian, and triangulated Ladin (DLS + Eurac BISTRO + 17k Forni inflections).
 - **Dual-Remote Architecture:** Open-source public code & copyright-safe metadata on GitHub (`origin`), full-text data and dictionary assets on institutional GitLab (`gitlab`).
@@ -176,7 +176,7 @@ For a **1-week working demo**, **Streamlit** combined with **Plotly** is the opt
 | **Day 6** | **Export, Triangulation & Caching Optimization** | 3-way Triangulation strip, 26-column research CSV export with APA citations, Keyness CSV export. | **Done** |
 | **Day 7** | **Packaging, Docker & Walkthrough** | Zero-config `Dockerfile` and `docker-compose.yml`, dual-remote Git governance synchronization. | **Done** |
 | **Phase 2.1** | **Qualitative Highlighting & Analyst Notes** | SQLite `article_annotations` table, inline quote capture, thematic coding tags, analyst memos, codebook export. | **Next** |
-| **Phase 2.2** | **CAQDAS QDPX Interoperability** | Two-way `.qdpx` format export for direct import into MAXQDA, NVivo, and ATLAS.ti. | **Planned** |
+| **Phase 2.2** | **CAQDAS QDPX Interoperability** | `.qdpx` export for direct import into MAXQDA (primary target; NVivo and ATLAS.ti untested), with import back to DIDI as a later step. | **Planned** |
 
 ---
 

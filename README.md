@@ -21,18 +21,20 @@ It investigates how political discourse, minority rights, language policy, and r
 
 ## 2. Harmonized Trilingual Corpus
 
-The platform harmonizes **12,624 articles** spanning **2,765,436 words** (2017–2026):
+The platform harmonizes **12,220 articles** spanning **2,567,181 words** (2017–2026):
 
 | Outlet / Source | Language | Variety / Dialect | Articles | Word Count |
 | :--- | :--- | :--- | ---: | ---: |
 | **RaiNews TGR TRAIL** | Ladin | `lld_gherd` / `lld_badia` / `lld_fascia` | 6,278 | 1,246,407 |
 | **La Usc di Ladins** | Ladin | `lld_gherd` / `lld_badia` | 5,084 | 915,210 |
-| **Salto.bz** | German | `de` | 741 | 382,114 |
-| **Salto.bz** | Italian | `it` | 390 | 169,779 |
+| **Salto.bz** | German | `de` | 447 | 192,106 |
+| **Salto.bz** | Italian | `it` | 280 | 161,532 |
 | **Die Neue Südtiroler Tageszeitung** | German | `de` | 131 | 51,926 |
-| **Total** | *Trilingual* | *5 varieties (`de`, `it`, `lld_gherd`, `lld_badia`, `lld_fascia`)* | **12,624** | **2,765,436** |
+| **Total** | *Trilingual* | *5 varieties (`de`, `it`, `lld_gherd`, `lld_badia`, `lld_fascia`)* | **12,220** | **2,567,181** |
 
-> **Language/Dialect Breakdown:** `lld_gherd` (5,965 articles), `lld_badia` (3,880 articles), `lld_fascia` (1,517 articles), `de` (872 articles), `it` (390 articles).
+> **Language/Dialect Breakdown:** `lld_gherd` (5,983 articles), `lld_badia` (3,862 articles), `lld_fascia` (1,517 articles), `de` (578 articles), `it` (280 articles).
+>
+> **Variety labels:** Salto language and Badiot/Gherdëina labels are read from the text. Articles where that is unclear keep their source label and are flagged `language_low_evidence` or `variety_uncertain` in metadata. `lld_fascia` labels come from the source region and have not been verified; some of those articles are in other varieties.
 
 ---
 
@@ -152,7 +154,7 @@ docker-compose up -d localstack
 To comply with publisher copyright and third-party lexicon licenses while ensuring scientific reproducibility, this project separates **public code & derived metrics** from **restricted full-text & lexical assets**:
 
 - **Public GitHub Repository (`origin` — [`github.com/lucaducceschi/didi-platform`](https://github.com/lucaducceschi/didi-platform)):**
-  - Contains the complete software architecture, harmonization/NLP pipelines, Stanza lexicon compiler, parallel validation suite, and [`data/processed/didi_corpus.jsonl`](data/processed/didi_corpus.jsonl) (**12,624 harmonized records** with article URLs, dates, categories, lexical diversity, NRC emotion densities, and Moral Foundations scores, with `full_text` omitted).
+  - Contains the complete software architecture, harmonization/NLP pipelines, Stanza lexicon compiler, parallel validation suite, and [`data/processed/didi_corpus.jsonl`](data/processed/didi_corpus.jsonl) (**12,220 harmonized records** with article URLs, dates, categories, lexical diversity, NRC emotion densities, and Moral Foundations scores, with `full_text` omitted).
   - Excludes copyrighted full-text newspaper bodies (`data/raw/`, `*.db`) and third-party dictionary files (`assets/`) via [`.gitignore`](.gitignore).
 - **Private Institutional Mirror (`gitlab` — `gitlab.inf.unibz.it/Luca.Ducceschi/didi-platform`):**
   - Restricted private repository containing the full research environment, including `assets/` (`MFD_Fr_Ge_Sp_It.Rmd`, `mMPD_de.yml`, `it-MFD.dicx`, `mfd_compiled_lemmas.json`, and `parallel_validation/`) alongside full corpus snapshots under Eurac Research / unibz academic data governance.
