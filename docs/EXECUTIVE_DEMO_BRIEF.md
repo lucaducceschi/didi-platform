@@ -56,6 +56,7 @@ When presenting to researchers who are **not statisticians and not AI power user
   - *Say:* Compare which foundations lead within each language, not the sizes across languages. Density differences may come partly from the dictionaries, and that hasn't been ruled out.
 - **Show:** Expand one article (`📖 Read Full Article`) and show the clean text and APA citation.
 - **Show:** The **`📥 Export CSV`** button for R / SPSS / Excel.
+- **Show:** The **`🧾 MAXQDA`** button, and say it is still being tested in MAXQDA. Export after searching: the limit is 1,500 articles, and with no search term those are all recent Ladin.
 
 #### 2. View 2: Comparative Framing Radar
 - **Action:** Switch to Tab 2.
@@ -63,7 +64,7 @@ When presenting to researchers who are **not statisticians and not AI power user
 - **Check/Explain:** Emphasize that these scores are based on validated lexicons compiled with Eurac BISTRO terminology and parallel corpora (Husson & Palma 2025).
 
 #### 3. View 4: Focus Events & Meaning-Making (The Academic Highlight)
-- **Action:** Switch to Tab 4 and select **`Autonomy Statute Reform Proposals`** (2024-03-01). It is the only event with German, Italian and Ladin coverage worth showing.
+- **Action:** Clear the search box, switch to Tab 4 and select **`Autonomy Statute Reform Proposals`** (2024-03-01). This view follows the sidebar search, so a leftover search changes or empties these figures. It is the only event with German, Italian and Ladin coverage worth showing.
 - **Say first:** Read out the coverage line: German 12, Italian 9, Ladin 267 articles. This shows the method; it is too thin for a finding, and the results are mostly Ladin. The 2018–2022 events are marked Ladin-only in the app, so use them only to discuss Ladin coverage.
 - **Show:**
   - Pre/post volume (141 → 147 articles, +4.3%). This is not a surge, so don't present it as one.
@@ -82,7 +83,7 @@ When presenting to researchers who are **not statisticians and not AI power user
 > **Answer:** *"All comparative metrics (densities, radar axes, valence) are normalized per 1,000 words, not by raw volume. Ladin outlets publish short daily dispatches (TRAIL broadcasts), whereas Salto publishes long-form analytical pieces. Normalization handles the difference in length, but not everything: German and Italian coverage is mostly 2024 to May 2025, so we compare across languages only in that window and treat differences in density with caution."*
 
 ### Q3: *"I don't use Python or R; I code manually in MAXQDA or NVivo. Does this replace my work?"*
-> **Answer:** *"Not at all. This replaces the 4 weeks of manual keyword searching and scoping. You filter your cohort here in 30 seconds, verify the framing patterns, and click 'Export' to get the exact dataset with APA citations as a CSV file. Direct MAXQDA project export is the next planned feature."*
+> **Answer:** *"Not at all. This replaces the 4 weeks of manual keyword searching and scoping. You filter your cohort here in 30 seconds, verify the framing patterns, and click 'Export' to get the exact dataset with APA citations as a CSV file. There is also a MAXQDA project export for articles and metadata, which we are still testing in MAXQDA itself."*
 
 ### Q4: *"Can we add other outlets like Dolomiten or Alto Adige?"*
 > **Answer:** *"Technically, yes. The harmonization pipeline (`src/harmonizers/`) is pluggable. However, unlike Salto, Tageszeitung, and RaiNews TRAIL, commercial publishers like Athesia (Dolomiten, Alto Adige) use strict digital paywalls and legal restrictions. If Eurac negotiates institutional access or PDF archives, we can ingest them in 1 day."*

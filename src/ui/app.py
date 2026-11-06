@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.ui.data_service import (
+    QDPX_EXPORT_LIMIT,
     DataService, LANGUAGE_LABELS, SOURCE_LABELS, FOUNDATION_COLS, EMOTION_COLS
 )
 from src.ui.components.charts import (
@@ -239,23 +240,24 @@ def main():
                     use_container_width=True
                 )
 
-        col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns([2.2, 0.8, 1.0, 1.2])
+        export_filters = {
+            "query": filters["query"],
+            "sources": filters["sources"],
+            "languages": filters["languages"],
+            "min_sentiment": filters["min_sentiment"],
+            "max_sentiment": filters["max_sentiment"],
+            "min_moral": filters["min_moral"],
+            "expand_trilingual": filters.get("expand_trilingual", True),
+            "enable_prefix": filters.get("enable_prefix", True),
+        }
+
+        col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4, col_ctrl5 = st.columns([2.0, 0.8, 1.0, 1.2, 1.2])
         with col_ctrl1:
             st.caption(f"Showing results for query: **'{filters['query'] or 'ALL ARTICLES'}'**")
         with col_ctrl2:
             page_size = st.selectbox("Page Size", options=[10, 20, 50], index=0)
         with col_ctrl3:
-            export_df = service.export_filtered_dataset(
-                query=filters["query"],
-                sources=filters["sources"],
-                languages=filters["languages"],
-                min_sentiment=filters["min_sentiment"],
-                max_sentiment=filters["max_sentiment"],
-                min_moral=filters["min_moral"],
-                expand_trilingual=filters.get("expand_trilingual", True),
-                enable_prefix=filters.get("enable_prefix", True),
-                limit=1500
-            )
+            export_df = service.export_filtered_dataset(**export_filters, limit=1500)
             if not export_df.empty:
                 csv_bytes = export_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
                 st.download_button(
@@ -277,6 +279,22 @@ def main():
                     mime="text/csv",
                     use_container_width=True,
                     help="Download all saved qualitative highlights, thematic codes, memos, and APA citations."
+                )
+
+        with col_ctrl5:
+            _, qdpx_total = service.search_articles(**export_filters, use_hybrid=False, limit=1)
+            if qdpx_total:
+                qdpx_count = f"{qdpx_total:,}" if qdpx_total <= QDPX_EXPORT_LIMIT else f"{QDPX_EXPORT_LIMIT:,} of {qdpx_total:,}"
+                st.download_button(
+                    label=f"🧾 MAXQDA ({qdpx_count})",
+                    data=lambda: service.build_maxqda_export(**export_filters),
+                    file_name=f"didi_maxqda_{datetime.now().strftime('%Y%m%d_%H%M')}.qdpx",
+                    mime="application/zip",
+                    use_container_width=True,
+                    help=(
+                        "Download these articles as a REFI-QDA project for MAXQDA, with their full text and metadata. "
+                        f"Limited to the top {QDPX_EXPORT_LIMIT:,} results. Contains copyrighted text: keep it private."
+                    )
                 )
 
         articles, total_matches = service.search_articles(
@@ -595,7 +613,7 @@ def main():
         coverage = service.get_focus_event_coverage(selected_event_key, window_days)
         if coverage["de"] + coverage["it"] <= 1:
             st.warning("**Ladin-only event:** the corpus has almost no German or Italian articles in this window, so it cannot support a cross-language comparison.")
-        st.caption(f"Articles in this window: German {coverage['de']} · Italian {coverage['it']} · Ladin {coverage['lld']}")
+        st.caption(f"Articles in this window, all topics: German {coverage['de']} · Italian {coverage['it']} · Ladin {coverage['lld']}. The figures below follow your search.")
 
         # Compute Event Analysis
         analysis = service.analyze_focus_event(

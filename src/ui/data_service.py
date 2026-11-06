@@ -20,6 +20,7 @@ from src.nlp.framing_divergence import (
     compute_moral_divergence
 )
 from src.nlp.hybrid_search import HybridSearchEngine
+from src.ui.qdpx import build_qdpx
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "processed" / "didi_corpus.db"
 
@@ -47,6 +48,8 @@ LANGUAGE_LABELS = {
     "lld_badia": "Ladin Val Badia (lld_badia)",
     "lld_fascia": "Ladin Fascia (lld_fascia)"
 }
+
+QDPX_EXPORT_LIMIT = 1500
 
 SOURCE_LABELS = {
     "tageszeitung": "Die Neue Südtiroler Tageszeitung",
@@ -449,6 +452,41 @@ class DataService:
                 "apa_citation": apa
             })
         return pd.DataFrame(records)
+
+    def get_articles_for_qdpx(self, article_ids: List[str]) -> List[Dict[str, Any]]:
+        """Return QDPX document records for the given articles, oldest first."""
+        placeholders = ",".join("?" * len(article_ids))
+        with self._get_connection() as conn:
+            rows = conn.execute(f"""
+                SELECT id, source, language, url, title, publish_date, author, category, full_text
+                FROM articles
+                WHERE id IN ({placeholders})
+                ORDER BY publish_date ASC, id ASC
+            """, article_ids).fetchall()
+
+        documents = []
+        for row in rows:
+            date = row["publish_date"][:10]
+            author = row["author"] or "Redaktion"
+            source = SOURCE_LABELS.get(row["source"], row["source"])
+            documents.append({
+                "corpus_id": row["id"],
+                "name": f"{date} {source} [{row['language']}] {row['title']}",
+                "text": row["full_text"],
+                "citation": f"{author} ({date[:4]}). {row['title']}. {source}. DIDI Corpus ID: {row['id']}.",
+                "source": source,
+                "variety": LANGUAGE_LABELS.get(row["language"], row["language"]),
+                "publish_date": date,
+                "author": author,
+                "category": row["category"],
+                "url": row["url"],
+            })
+        return documents
+
+    def build_maxqda_export(self, limit: int = QDPX_EXPORT_LIMIT, **filters: Any) -> bytes:
+        """Build a .qdpx project from the articles matching the search filters."""
+        rows, _ = self.search_articles(use_hybrid=False, limit=limit, offset=0, **filters)
+        return build_qdpx("DIDI corpus export", self.get_articles_for_qdpx([r["id"] for r in rows]))
 
     def get_triangulation_summary(
         self,

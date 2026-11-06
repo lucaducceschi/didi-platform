@@ -16,6 +16,7 @@ ENV/
 *.npy
 data/raw/
 data/processed/*.db
+*.qdpx
 *.db-journal
 assets/
 
