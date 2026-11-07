@@ -8,6 +8,7 @@ from backend.app.deps import Db, MemberAccess, ReadAccess
 from backend.app.errors import not_found
 from backend.app.schemas_work import AnnotationCreate, AnnotationOut, AnnotationUpdate
 from backend.app.services import annotations as service
+from backend.app.services import library
 
 router = APIRouter(prefix="/api/projects/{project_id}")
 
@@ -34,6 +35,7 @@ def create_annotation(article_id: str, body: AnnotationCreate, access: MemberAcc
     annotation, created, merged_from = service.create_annotation(
         db, access.project.id, access.user.id, article_id, article["full_text"], body.start, body.end, body.code_id, body.memo
     )
+    library.start_progress(db, access.project.id, article_id, access.user.id)
     db.commit()
     if not created:
         response.status_code = status.HTTP_200_OK

@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ApiError, getArticle } from '../api'
+import { CodeInProject } from '../components/CodeInProject'
 import { useApi } from '../useApi'
 
 const formatNumber = (value: number | null, digits = 1) => (value === null ? 'Not available' : value.toFixed(digits))
@@ -42,6 +43,7 @@ export function ArticlePage() {
         <a href={article.url} target="_blank" rel="noreferrer noopener">Open original article</a>
       </aside>
       <article className="article-body">
+        <CodeInProject articleId={article.id} />
         <h1>{article.title}</h1>
         <div className="article-text" data-testid="article-text">{article.full_text}</div>
       </article>

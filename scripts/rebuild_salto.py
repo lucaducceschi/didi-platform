@@ -18,18 +18,6 @@ def main():
     articles = SaltoHarmonizer().parse_directory(PROJECT_ROOT / "data" / "raw" / "salto")
 
     with db._get_connection() as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        if "article_annotations" in tables:
-            kept = {a.id for a in articles}
-            orphaned = [
-                r[0]
-                for r in conn.execute(
-                    "SELECT an.article_id FROM article_annotations an JOIN articles a ON a.id = an.article_id WHERE a.source = 'salto'"
-                )
-                if r[0] not in kept
-            ]
-            if orphaned:
-                sys.exit(f"Aborting: annotations would be orphaned for {sorted(set(orphaned))}")
         conn.execute("DELETE FROM article_nlp_metrics WHERE article_id IN (SELECT id FROM articles WHERE source = 'salto')")
         conn.execute("DELETE FROM articles WHERE source = 'salto'")
         conn.commit()

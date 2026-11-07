@@ -151,6 +151,8 @@ test('a lead adds selected articles and all matches, seeing the count first', as
   await page.getByRole('link', { name: 'Add articles' }).click()
   await page.getByLabel('Search the corpus').fill('Autonomie')
   await page.getByRole('button', { name: 'Search', exact: true }).click()
+  // The unfiltered list stays on screen until the search returns, and only search results have marks.
+  await expect(page.locator('.pick-row mark').first()).toBeVisible()
   await page.locator('.pick-row input').first().check()
   await page.getByRole('button', { name: 'Add selected (1)' }).click()
   await expect(page.getByRole('status')).toContainText('Added 1 article')

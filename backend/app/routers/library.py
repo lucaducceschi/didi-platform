@@ -6,13 +6,16 @@ from fastapi import APIRouter, HTTPException, Query
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS
 
 from backend.app.corpus import get_corpus, snippet_parts
-from backend.app.deps import Db, ManagerAccess, ReadAccess
+from backend.app.deps import Db, ManagerAccess, MemberAccess, ReadAccess
 from backend.app.errors import not_found
 from backend.app.models import ProjectArticle
 from backend.app.routers.corpus import article_detail
 from backend.app.schemas import ArticleDetail
 from backend.app.schemas_work import (
     LibraryResponse,
+    PresenceOut,
+    ProgressOut,
+    ProgressUpdate,
     ProjectArticlesAdded,
     ProjectArticlesFromSearch,
     ProjectSearchResponse,
@@ -94,8 +97,40 @@ def add_from_search(body: ProjectArticlesFromSearch, access: ManagerAccess, db: 
     return ProjectArticlesAdded(added=added, already_present=len(ids) - added)
 
 
+def _require_article(db, project_id, article_id: str) -> None:
+    if db.get(ProjectArticle, (project_id, article_id)) is None:
+        raise not_found("This article in this project")
+
+
 @router.get("/articles/{article_id}", response_model=ArticleDetail)
 def get_project_article(article_id: str, access: ReadAccess, db: Db):
-    if db.get(ProjectArticle, (access.project.id, article_id)) is None:
-        raise not_found("This article in this project")
+    _require_article(db, access.project.id, article_id)
     return article_detail(get_corpus(), article_id)
+
+
+@router.get("/articles/{article_id}/progress", response_model=ProgressOut)
+def get_progress(article_id: str, access: ReadAccess, db: Db):
+    _require_article(db, access.project.id, article_id)
+    return {"status": library.get_progress(db, access.project.id, article_id, access.user.id)}
+
+
+@router.put("/articles/{article_id}/progress", response_model=ProgressOut)
+def set_progress(article_id: str, body: ProgressUpdate, access: MemberAccess, db: Db):
+    _require_article(db, access.project.id, article_id)
+    library.set_progress(db, access.project.id, article_id, access.user.id, body.status)
+    db.commit()
+    return {"status": body.status}
+
+
+@router.post("/articles/{article_id}/presence", response_model=PresenceOut)
+def heartbeat(article_id: str, access: ReadAccess, db: Db):
+    _require_article(db, access.project.id, article_id)
+    others = library.heartbeat(db, access.project.id, article_id, access.user.id, access.is_member and not access.project.archived)
+    db.commit()
+    return {"others": others}
+
+
+@router.delete("/articles/{article_id}/presence", status_code=204)
+def leave(article_id: str, access: ReadAccess, db: Db) -> None:
+    library.leave(db, access.project.id, article_id, access.user.id)
+    db.commit()

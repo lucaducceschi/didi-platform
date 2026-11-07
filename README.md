@@ -36,9 +36,11 @@ Open http://127.0.0.1:5180. The API runs on port 8010 and its documentation is a
 make create-admin USERNAME=luca NAME="Your Name"   # Create the first account
 make test       # Python and frontend tests; needs Docker, the corpus file is optional
 make e2e        # Browser tests against a throwaway database; needs the corpus file
-                # First run only: cd frontend && npx playwright install chromium
+                # First run only: cd frontend && npx playwright install chromium firefox
 make db-down    # Stop PostgreSQL; its data is kept
 ```
+
+Researchers should read the [researcher guide](docs/coding/RESEARCHER_GUIDE.md).
 
 **Annotations are research data, so back them up.** Backups go to `data/backups/`, which git ignores, so copy them somewhere safe.
 

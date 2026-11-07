@@ -2,14 +2,15 @@
 
 import uuid
 from collections import Counter
+from datetime import timedelta
 from typing import Dict, List, Optional
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS, DataService
 
-from backend.app.models import Annotation, ArticleProgress, ProjectArticle, User, utcnow
+from backend.app.models import Annotation, ArticleProgress, Presence, ProjectArticle, User, utcnow
 from backend.app.services.activity import log_activity
 
 
@@ -27,6 +28,57 @@ def add_articles(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, article
     if added:
         log_activity(db, "articles.added", f"{added} articles", user_id=user_id, project_id=project_id)
     return added
+
+
+PRESENCE_TIMEOUT_SECONDS = 90
+
+
+def start_progress(db: Session, project_id: uuid.UUID, article_id: str, user_id: uuid.UUID) -> None:
+    """Mark an article in progress on first coding. It doesn't reopen an article marked done."""
+    db.execute(
+        insert(ArticleProgress)
+        .values(project_id=project_id, article_id=article_id, user_id=user_id, status="in_progress", updated_at=utcnow())
+        .on_conflict_do_nothing()
+    )
+
+
+def set_progress(db: Session, project_id: uuid.UUID, article_id: str, user_id: uuid.UUID, status: str) -> None:
+    statement = insert(ArticleProgress).values(
+        project_id=project_id, article_id=article_id, user_id=user_id, status=status, updated_at=utcnow()
+    )
+    db.execute(
+        statement.on_conflict_do_update(
+            index_elements=["project_id", "article_id", "user_id"],
+            set_={"status": statement.excluded.status, "updated_at": statement.excluded.updated_at},
+        )
+    )
+
+
+def get_progress(db: Session, project_id: uuid.UUID, article_id: str, user_id: uuid.UUID) -> str:
+    progress = db.get(ArticleProgress, (project_id, article_id, user_id))
+    return progress.status if progress else "not_started"
+
+
+def heartbeat(db: Session, project_id: uuid.UUID, article_id: str, user_id: uuid.UUID, is_member: bool) -> List[User]:
+    """Record that this person has the article open, and return who else does. It never blocks anyone."""
+    now = utcnow()
+    cutoff = now - timedelta(seconds=PRESENCE_TIMEOUT_SECONDS)
+    db.execute(delete(Presence).where(Presence.last_seen < cutoff))
+    if is_member:
+        statement = insert(Presence).values(project_id=project_id, article_id=article_id, user_id=user_id, last_seen=now)
+        db.execute(
+            statement.on_conflict_do_update(
+                index_elements=["project_id", "article_id", "user_id"], set_={"last_seen": statement.excluded.last_seen}
+            )
+        )
+    rows = db.scalars(
+        select(Presence).where(Presence.project_id == project_id, Presence.article_id == article_id, Presence.user_id != user_id)
+    )
+    return sorted((row.user for row in rows), key=lambda user: user.display_name.lower())
+
+
+def leave(db: Session, project_id: uuid.UUID, article_id: str, user_id: uuid.UUID) -> None:
+    db.execute(delete(Presence).where(Presence.project_id == project_id, Presence.article_id == article_id, Presence.user_id == user_id))
 
 
 def project_article_ids(db: Session, project_id: uuid.UUID) -> List[str]:

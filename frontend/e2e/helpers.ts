@@ -7,7 +7,9 @@ export async function logIn(page: Page, username: string, password = PASSWORD) {
   await page.goto('/')
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Log in' }).click()
+  // Enter also submits the form, and avoids WebKit's unreliable synthetic mouse clicks on macOS.
+  // The workbench spec clicks the button itself in Chromium.
+  await page.getByLabel('Password').press('Enter')
   await expect(page.getByRole('link', { name: 'Projects' })).toBeVisible()
 }
 

@@ -167,7 +167,9 @@ test('wrong passwords, logging out and expired access', async ({ browser, baseUR
   await page.getByRole('button', { name: 'Log in' }).click()
   await expect(page.getByRole('alert')).toContainText('incorrect')
 
-  await logIn(page, 'cara')
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await expect(page.getByRole('link', { name: 'Projects' })).toBeVisible()
   await page.getByRole('button', { name: 'Log out' }).click()
   await expect(page.getByLabel('Password')).toBeVisible()
   await page.goto('/search')

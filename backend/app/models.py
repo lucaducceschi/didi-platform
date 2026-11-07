@@ -78,6 +78,15 @@ class ArticleProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=utcnow)
 
 
+class Presence(Base):
+    __tablename__ = "presence"
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id"), primary_key=True)
+    article_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    last_seen: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=utcnow)
+    user: Mapped[User] = relationship(lazy="selectin")
+
+
 class Code(Base):
     __tablename__ = "codes"
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)

@@ -1,13 +1,13 @@
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_engine
-from backend.app.models import ArticleProgress
+from backend.app.services import library
 from tests.test_codebook import add_segment, make_code
 
 
 def set_progress(world, username, article_id, status):
     with Session(get_engine()) as db:
-        db.add(ArticleProgress(project_id=world.ids["project"], article_id=article_id, user_id=world.ids[username], status=status))
+        library.set_progress(db, world.ids["project"], article_id, world.ids[username], status)
         db.commit()
 
 
@@ -136,3 +136,92 @@ def test_adding_thousands_of_articles_is_safe(world, monkeypatch):
         assert library.add_articles(db, world.ids["project"], world.ids["lead"], ids) == 5000
         assert library.add_articles(db, world.ids["project"], world.ids["lead"], ids) == 0
         db.rollback()
+
+
+def annotate(client, world, code_id, article="fx_de_1"):
+    return client.post(f"{world.url}/articles/{article}/annotations", json={"start": 0, "end": 3, "code_id": code_id})
+
+
+def test_first_segment_marks_the_article_in_progress_for_that_coder_only(world):
+    code = make_code(world, "A")
+    url = f"{world.url}/articles/fx_de_1/progress"
+    assert world.coder.get(url).json()["status"] == "not_started"
+    annotate(world.coder, world, code["id"])
+    assert world.coder.get(url).json()["status"] == "in_progress"
+    assert world.coder2.get(url).json()["status"] == "not_started"
+
+
+def test_mark_done_and_reopen_and_coding_does_not_undo_done(world):
+    code = make_code(world, "A")
+    url = f"{world.url}/articles/fx_de_1/progress"
+    assert world.coder.put(url, json={"status": "done"}).json()["status"] == "done"
+    annotate(world.coder, world, code["id"])
+    assert world.coder.get(url).json()["status"] == "done"
+    assert world.coder.put(url, json={"status": "in_progress"}).json()["status"] == "in_progress"
+    assert world.coder.get(f"{world.url}/library", params={"status": "in_progress"}).json()["total"] == 1
+
+
+def test_progress_rules(world):
+    url = f"{world.url}/articles/fx_de_1/progress"
+    assert world.coder.put(url, json={"status": "not_started"}).status_code == 422
+    assert world.admin.put(url, json={"status": "done"}).status_code == 403
+    assert world.outsider.put(url, json={"status": "done"}).status_code == 404
+    assert world.coder.put(f"{world.url}/articles/not_in_project/progress", json={"status": "done"}).status_code == 404
+    assert world.anonymous.get(url).status_code == 401
+
+
+def test_presence_shows_others_and_never_yourself(world):
+    url = f"{world.url}/articles/fx_de_1/presence"
+    assert world.coder.post(url).json()["others"] == []
+    assert [person["username"] for person in world.coder2.post(url).json()["others"]] == ["coder"]
+    assert [person["username"] for person in world.coder.post(url).json()["others"]] == ["coder2"]
+    # A different article doesn't count.
+    assert world.lead.post(f"{world.url}/articles/fx_it_1/presence").json()["others"] == []
+
+
+def test_leaving_clears_presence(world):
+    url = f"{world.url}/articles/fx_de_1/presence"
+    world.coder.post(url)
+    assert world.coder.delete(url).status_code == 204
+    assert world.coder2.post(url).json()["others"] == []
+
+
+def test_presence_expires_when_a_tab_just_disappears(world):
+    from datetime import timedelta
+
+    from backend.app.models import Presence, utcnow
+    from backend.app.services.library import PRESENCE_TIMEOUT_SECONDS
+
+    url = f"{world.url}/articles/fx_de_1/presence"
+    world.coder.post(url)
+    with Session(get_engine()) as db:
+        presence = db.get(Presence, (world.ids["project"], "fx_de_1", world.ids["coder"]))
+        presence.last_seen = utcnow() - timedelta(seconds=PRESENCE_TIMEOUT_SECONDS - 5)
+        db.commit()
+    assert len(world.coder2.post(url).json()["others"]) == 1
+    with Session(get_engine()) as db:
+        presence = db.get(Presence, (world.ids["project"], "fx_de_1", world.ids["coder"]))
+        presence.last_seen = utcnow() - timedelta(seconds=PRESENCE_TIMEOUT_SECONDS + 5)
+        db.commit()
+    assert world.coder2.post(url).json()["others"] == []
+
+
+def test_presence_is_limited_to_the_project(world):
+    url = f"{world.url}/articles/fx_de_1/presence"
+    assert world.outsider.post(url).status_code == 404
+    assert world.anonymous.post(url).status_code == 401
+    # An admin who isn't a member can look without appearing as someone working on it.
+    world.coder.post(url)
+    assert len(world.admin.post(url).json()["others"]) == 1
+    assert [person["username"] for person in world.coder.post(url).json()["others"]] == []
+
+
+def test_streamlit_no_longer_uses_the_old_annotation_table():
+    from pathlib import Path
+
+    from src.ui.data_service import DataService
+
+    for name in ("add_annotation", "export_all_annotations", "_init_annotations_table"):
+        assert not hasattr(DataService, name)
+    source = Path("src/ui/app.py").read_text(encoding="utf-8") + Path("src/ui/data_service.py").read_text(encoding="utf-8")
+    assert "article_annotations" not in source

@@ -310,6 +310,16 @@ export interface ArticlesAdded {
   already_present: number
 }
 
+export interface ArticleProject {
+  id: string
+  name: string
+  archived: boolean
+  role: 'lead' | 'coder'
+  in_project: boolean
+}
+
+export const getArticleProjects = (articleId: string, signal?: AbortSignal) =>
+  getJson<ArticleProject[]>(`/api/articles/${encodeURIComponent(articleId)}/projects`, signal)
 export const addArticles = (projectId: string, article_ids: string[]) =>
   request<ArticlesAdded>('POST', `/api/projects/${projectId}/articles`, { article_ids })
 export const addArticlesFromSearch = (projectId: string, body: { q: string; source: string[]; language: string[] }) =>
@@ -331,7 +341,33 @@ export interface Annotation {
   revision: number
   created_at: string
   updated_at: string
+  created?: boolean | null
+  merged_from?: string | null
 }
 
 export const listAnnotations = (projectId: string, articleId: string, scope: 'mine' | 'all', signal?: AbortSignal) =>
   getJson<Annotation[]>(`/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}/annotations?scope=${scope}`, signal)
+
+export const createAnnotation = (projectId: string, articleId: string, body: { start: number; end: number; code_id: string; memo: string }) =>
+  request<Annotation>('POST', `/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}/annotations`, body)
+export const updateAnnotation = (projectId: string, id: string, body: { revision: number; code_id?: string; memo?: string }) =>
+  request<Annotation>('PATCH', `/api/projects/${projectId}/annotations/${id}`, body)
+export const deleteAnnotation = (projectId: string, annotation: Annotation) =>
+  request<void>('DELETE', `/api/projects/${projectId}/annotations/${annotation.id}?revision=${annotation.revision}`)
+
+export const getProgress = (projectId: string, articleId: string, signal?: AbortSignal) =>
+  getJson<{ status: MyStatus }>(`/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}/progress`, signal)
+export const setProgress = (projectId: string, articleId: string, status: 'in_progress' | 'done') =>
+  request<{ status: MyStatus }>('PUT', `/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}/progress`, { status })
+
+const presencePath = (projectId: string, articleId: string) => `/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}/presence`
+// A check-in waits for any leave still on its way. Otherwise the leave can arrive second and erase the
+// person who just checked in, as when reopening an article or under React's double effects in development.
+let pendingLeave: Promise<unknown> = Promise.resolve()
+
+export const sendHeartbeat = (projectId: string, articleId: string, signal?: AbortSignal) =>
+  pendingLeave.then(() => request<{ others: UserBrief[] }>('POST', presencePath(projectId, articleId), undefined, signal))
+/** Uses keepalive, so it still gets through while a tab is closing. */
+export const leaveArticle = (projectId: string, articleId: string) => {
+  pendingLeave = fetch(presencePath(projectId, articleId), { method: 'DELETE', keepalive: true }).catch(() => {})
+}

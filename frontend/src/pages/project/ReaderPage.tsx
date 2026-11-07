@@ -1,11 +1,15 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { type Annotation, ApiError, type Project, getProjectArticle, listAnnotations, listCodes } from '../../api'
+import { type Annotation, ApiError, type MyStatus, type Project, type UserBrief, getProgress, getProjectArticle, leaveArticle, listAnnotations, listCodes, sendHeartbeat, setProgress } from '../../api'
 import { useAuth } from '../../auth'
 import { flattenCodeTree } from '../../codebook'
-import { ArticleReader, type Highlight } from '../../components/ArticleReader'
+import { ArticleReader, type Highlight, type PendingSelection } from '../../components/ArticleReader'
 import { ErrorMessage } from '../../components/Message'
+import { trimSelection } from '../../selection'
+import { useAction } from '../../useAction'
 import { useApi } from '../../useApi'
+import { CodingPanel } from './CodingPanel'
+import { SegmentPanel } from './SegmentPanel'
 
 interface CodeInfo {
   path: string
@@ -13,20 +17,39 @@ interface CodeInfo {
   order: number
 }
 
-function SegmentDetail({ segment, code }: { segment: Annotation; code?: CodeInfo }) {
-  return (
-    <div className="segment-detail">
-      <strong>{code?.path ?? 'Unknown code'}</strong>
-      <span className="label">{segment.user.display_name} · {new Date(segment.created_at).toLocaleDateString()}</span>
-      <p>{segment.quote}</p>
-      {segment.memo && (
-        <>
-          <span className="label">Memo</span>
-          <p>{segment.memo}</p>
-        </>
-      )}
-    </div>
-  )
+const HEARTBEAT_MS = 30_000
+
+function usePresence(projectId: string, articleId: string): UserBrief[] {
+  const [others, setOthers] = useState<UserBrief[]>([])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const beat = () => {
+      sendHeartbeat(projectId, articleId, controller.signal)
+        .then((result) => setOthers(result.others))
+        .catch(() => {}) // Presence is only a courtesy, so a failure must never get in the way of coding.
+    }
+    const leave = () => leaveArticle(projectId, articleId)
+    beat()
+    const timer = window.setInterval(beat, HEARTBEAT_MS)
+    window.addEventListener('pagehide', leave)
+    return () => {
+      controller.abort()
+      window.clearInterval(timer)
+      window.removeEventListener('pagehide', leave)
+      leave()
+    }
+  }, [projectId, articleId])
+
+  return others
+}
+
+const joinNames = (people: UserBrief[]) => people.map((person) => person.display_name).join(', ')
+
+const STATUS_TEXT: Record<MyStatus, string> = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  done: 'Done',
 }
 
 export function ReaderPage({ project }: { project: Project }) {
@@ -34,10 +57,16 @@ export function ReaderPage({ project }: { project: Project }) {
   const { user } = useAuth()
   const [scope, setScope] = useState<'mine' | 'all'>('mine')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [pending, setPending] = useState<PendingSelection | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const others = usePresence(project.id, articleId)
+  const progressAction = useAction()
   const key = `${project.id}/${articleId}`
   const article = useApi((signal) => getProjectArticle(project.id, articleId, signal), key)
   const codes = useApi((signal) => listCodes(project.id, signal), project.id)
   const annotations = useApi((signal) => listAnnotations(project.id, articleId, scope, signal), `${key}/${scope}`)
+  const progress = useApi((signal) => getProgress(project.id, articleId, signal), key)
+  const canCode = project.role !== null && !project.archived
 
   const codeInfo = useMemo(() => {
     const info = new Map<string, CodeInfo>()
@@ -67,7 +96,21 @@ export function ReaderPage({ project }: { project: Project }) {
     return [...byCode.entries()].sort(([a], [b]) => (codeInfo.get(a)?.order ?? 1e9) - (codeInfo.get(b)?.order ?? 1e9))
   }, [active, codeInfo])
 
+  const pathOf = useCallback((codeId: string) => codeInfo.get(codeId)?.path ?? 'Unknown code', [codeInfo])
+
+  const startCoding = useCallback((selection: PendingSelection) => {
+    setNotice(null)
+    setSelectedIds([])
+    setPending(selection)
+  }, [])
+
+  const selectSegments = useCallback((ids: string[]) => {
+    setPending(null)
+    setSelectedIds(ids)
+  }, [])
+
   const selectFromList = useCallback((segment: Annotation) => {
+    setPending(null)
     setSelectedIds([segment.id])
     document.querySelector(`[data-segments~="${segment.id}"]`)?.scrollIntoView({ block: 'center' })
   }, [])
@@ -87,6 +130,15 @@ export function ReaderPage({ project }: { project: Project }) {
 
   const selected = segments.filter((segment) => selectedIds.includes(segment.id))
   const data = article.data
+  const status = progress.data?.status ?? 'not_started'
+  const changeStatus = (next: 'in_progress' | 'done') => void progressAction.run(async () => {
+    await setProgress(project.id, articleId, next)
+    progress.reload()
+  })
+  const handleTextSelected = (selection: PendingSelection) => {
+    // A selection of only spaces or line breaks has nothing to code.
+    if (trimSelection(data.full_text, selection.start, selection.end)) startCoding(selection)
+  }
 
   return (
     <div className="stack">
@@ -99,25 +151,75 @@ export function ReaderPage({ project }: { project: Project }) {
             <a href={data.url} target="_blank" rel="noreferrer noopener">Original article</a>
           </p>
         </div>
-        <div className="segmented" role="group" aria-label="Whose segments to show">
-          <button type="button" aria-pressed={scope === 'mine'} onClick={() => { setScope('mine'); setSelectedIds([]) }}>Mine</button>
-          <button type="button" aria-pressed={scope === 'all'} onClick={() => { setScope('all'); setSelectedIds([]) }}>All coders</button>
+        <div className="reader-actions">
+          {project.role && (
+            <>
+              <span className="status-pill">Your status: {STATUS_TEXT[status]}</span>
+              {canCode && status !== 'done' && <button type="button" className="button-quiet" disabled={progressAction.busy} onClick={() => changeStatus('done')}>Mark done</button>}
+              {canCode && status === 'done' && <button type="button" className="button-quiet" disabled={progressAction.busy} onClick={() => changeStatus('in_progress')}>Reopen</button>}
+            </>
+          )}
+          <div className="segmented" role="group" aria-label="Whose segments to show">
+            <button type="button" aria-pressed={scope === 'mine'} onClick={() => { setScope('mine'); setSelectedIds([]) }}>Mine</button>
+            <button type="button" aria-pressed={scope === 'all'} onClick={() => { setScope('all'); setSelectedIds([]) }}>All coders</button>
+          </div>
         </div>
       </div>
 
+      {others.length > 0 && (
+        <p className="presence-banner" role="status">
+          {joinNames(others)} {others.length === 1 ? 'is' : 'are'} also working on this article. Your work stays separate, so you can keep going.
+        </p>
+      )}
+      <ErrorMessage error={progressAction.error} />
+
       <div className="reader-layout">
-        <ArticleReader text={data.full_text} highlights={highlights} selectedIds={selectedIds} onSelect={setSelectedIds} />
+        <ArticleReader
+          text={data.full_text}
+          highlights={highlights}
+          selectedIds={selectedIds}
+          pending={pending}
+          onSelect={selectSegments}
+          onTextSelected={canCode ? handleTextSelected : undefined}
+        />
         <aside className="reader-side" aria-label="Segments">
           <ErrorMessage error={annotations.error ?? codes.error} />
 
+          {notice && <p className="message" role="status">{notice}</p>}
+          {canCode && !pending && selected.length === 0 && <p className="hint">Select text in the article to code it.</p>}
+
+          {pending && (
+            <CodingPanel
+              key={`${pending.start}-${pending.end}`}
+              project={project}
+              articleId={articleId}
+              text={data.full_text}
+              selection={pending}
+              codes={codes.data ?? []}
+              onCancel={() => setPending(null)}
+              onCodesChanged={codes.reload}
+              onSaved={(message) => {
+                setPending(null)
+                setNotice(message)
+                annotations.reload()
+                codes.reload()
+                progress.reload()
+              }}
+            />
+          )}
+
           {selected.length > 0 && (
-            <div className="panel">
-              <div className="page-title">
-                <h2>{selected.length === 1 ? 'Segment' : `${selected.length} segments`}</h2>
-                <button type="button" className="button-quiet" onClick={() => setSelectedIds([])}>Close</button>
-              </div>
-              {selected.map((segment) => <SegmentDetail key={segment.id} segment={segment} code={codeInfo.get(segment.code_id)} />)}
-            </div>
+            <SegmentPanel
+              project={project}
+              segments={selected}
+              codes={codes.data ?? []}
+              paths={pathOf}
+              userId={user?.id}
+              canEdit={canCode}
+              onChanged={annotations.reload}
+              onDeleted={() => { setSelectedIds([]); annotations.reload(); codes.reload() }}
+              onClose={() => setSelectedIds([])}
+            />
           )}
 
           {stale.length > 0 && (

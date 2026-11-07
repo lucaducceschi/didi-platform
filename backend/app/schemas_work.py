@@ -139,6 +139,14 @@ class MergePreview(BaseModel):
     name_conflicts: List[str]
 
 
+class ArticleProject(BaseModel):
+    id: uuid.UUID
+    name: str
+    archived: bool
+    role: Literal["lead", "coder"]
+    in_project: bool
+
+
 class ProjectArticlesAdd(BaseModel):
     article_ids: List[str] = Field(min_length=1, max_length=5000)
 
@@ -209,6 +217,18 @@ class ProjectSearchResponse(BaseModel):
     page: int
     page_size: int
     results: List[ProjectSearchResult]
+
+
+class ProgressUpdate(BaseModel):
+    status: Literal["in_progress", "done"]
+
+
+class ProgressOut(BaseModel):
+    status: Literal["not_started", "in_progress", "done"]
+
+
+class PresenceOut(BaseModel):
+    others: List[UserBrief]
 
 
 class AnnotationCreate(BaseModel):

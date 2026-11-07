@@ -118,7 +118,7 @@ TRILINGUAL_THESAURUS: Dict[str, str] = {
 
 
 class DataService:
-    """Read-only access service for didi_corpus.db."""
+    """Access to the corpus in didi_corpus.db. Annotations live in the workbench's PostgreSQL database."""
 
     def __init__(self, db_path: Optional[Path] = None, read_only: bool = False, enable_hybrid: bool = True):
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
@@ -127,29 +127,6 @@ class DataService:
             raise FileNotFoundError(f"Corpus database not found at {self.db_path}")
         self.last_query_expansion: Optional[str] = None
         self.hybrid_engine = HybridSearchEngine() if enable_hybrid else None
-        if not read_only:
-            self._init_annotations_table()
-
-    def _init_annotations_table(self):
-        """Ensure the article_annotations table exists in SQLite database."""
-        with self._get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS article_annotations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    article_id TEXT NOT NULL,
-                    quote TEXT NOT NULL,
-                    tag TEXT NOT NULL,
-                    note TEXT,
-                    analyst_name TEXT DEFAULT 'Analyst',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(article_id) REFERENCES articles(id)
-                )
-            """)
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_annotations_article_id ON article_annotations(article_id)
-            """)
-            conn.commit()
 
     def _get_connection(self) -> sqlite3.Connection:
         if self.read_only:
@@ -865,115 +842,3 @@ class DataService:
                 results[pair_key] = compute_moral_divergence(profiles[l1], profiles[l2])
 
         return results
-
-    # -----------------------------------------------------------------
-    # Qualitative Highlighting & Analyst Annotation Engine
-    # -----------------------------------------------------------------
-
-    def add_annotation(
-        self,
-        article_id: str,
-        quote: str,
-        tag: str,
-        note: Optional[str] = None,
-        analyst_name: str = "Analyst"
-    ) -> int:
-        """Add a qualitative text passage highlight and analyst note for an article."""
-        with self._get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO article_annotations (article_id, quote, tag, note, analyst_name)
-                VALUES (?, ?, ?, ?, ?)
-            """, (article_id, quote.strip(), tag.strip(), (note or "").strip(), analyst_name.strip()))
-            conn.commit()
-            return cur.lastrowid
-
-    def get_annotations_for_article(self, article_id: str) -> List[Dict[str, Any]]:
-        """Retrieve all annotations for a specific article, sorted by timestamp descending."""
-        with self._get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT id, article_id, quote, tag, note, analyst_name, created_at
-                FROM article_annotations
-                WHERE article_id = ?
-                ORDER BY created_at DESC
-            """, (article_id,))
-            return [dict(r) for r in cur.fetchall()]
-
-    def get_all_annotation_counts(self) -> Dict[str, int]:
-        """Return a mapping of article_id -> count of active annotations."""
-        with self._get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT article_id, count(*) as count
-                FROM article_annotations
-                GROUP BY article_id
-            """)
-            return {r["article_id"]: r["count"] for r in cur.fetchall()}
-
-    def delete_annotation(self, annotation_id: int) -> bool:
-        """Delete an annotation by ID."""
-        with self._get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM article_annotations WHERE id = ?", (annotation_id,))
-            conn.commit()
-            return cur.rowcount > 0
-
-    def export_all_annotations(self) -> pd.DataFrame:
-        """
-        Export all qualitative annotations joined with article metadata and APA citations.
-        Used for qualitative codebooks and export to CAQDAS tools (MAXQDA, NVivo).
-        """
-        with self._get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT 
-                    an.id as annotation_id,
-                    an.article_id,
-                    a.source,
-                    a.language,
-                    a.publish_date,
-                    a.author,
-                    a.title as article_title,
-                    a.category,
-                    an.tag as thematic_code,
-                    an.quote as quoted_evidence,
-                    an.note as analyst_memo,
-                    an.analyst_name,
-                    an.created_at as annotation_timestamp,
-                    a.url as source_url
-                FROM article_annotations an
-                JOIN articles a ON a.id = an.article_id
-                ORDER BY an.created_at DESC
-            """)
-            rows = [dict(r) for r in cur.fetchall()]
-            if not rows:
-                return pd.DataFrame()
-
-            records = []
-            for r in rows:
-                author = r.get("author") or "Redaktion"
-                pub_date = r.get("publish_date") or ""
-                pub_year = pub_date[:4] if pub_date else "ND"
-                source_name = SOURCE_LABELS.get(r.get("source"), r.get("source", ""))
-                apa = f"{author} ({pub_year}). {r.get('article_title', '')}. {source_name}. DIDI Corpus ID: {r.get('article_id')}."
-
-                records.append({
-                    "annotation_id": r["annotation_id"],
-                    "corpus_id": r["article_id"],
-                    "source": source_name,
-                    "language": r["language"],
-                    "publish_date": pub_date[:10] if pub_date else "",
-                    "article_title": r["article_title"],
-                    "author": author,
-                    "thematic_code": r["thematic_code"],
-                    "quoted_evidence": r["quoted_evidence"],
-                    "analyst_memo": r["analyst_memo"],
-                    "analyst_name": r["analyst_name"],
-                    "annotation_timestamp": r["annotation_timestamp"],
-                    "apa_citation": apa,
-                    "source_url": r["source_url"]
-                })
-            return pd.DataFrame(records)
-
-
