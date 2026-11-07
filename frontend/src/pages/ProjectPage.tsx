@@ -5,6 +5,7 @@ import { useApi } from '../useApi'
 import { ActivityTab } from './project/ActivityTab'
 import { AddArticlesPage } from './project/AddArticlesPage'
 import { LibraryTab } from './project/LibraryTab'
+import { PassagesTab } from './project/PassagesTab'
 import { ReaderPage } from './project/ReaderPage'
 import { CodebookTab } from './project/CodebookTab'
 import { MembersTab } from './project/MembersTab'
@@ -27,6 +28,7 @@ export function ProjectPage() {
       </div>
       <nav className="tabs" aria-label="Project sections">
         <NavLink to={`${base}/articles`} end={false}>Articles</NavLink>
+        <NavLink to={`${base}/passages`}>Passages</NavLink>
         <NavLink to={`${base}/codebook`}>Codebook</NavLink>
         <NavLink to={`${base}/members`}>Members</NavLink>
         <NavLink to={`${base}/activity`}>Activity</NavLink>
@@ -41,6 +43,7 @@ export function ProjectPage() {
         <Route path="articles" element={<LibraryTab project={project} />} />
         <Route path="articles/add" element={project.can_manage && !project.archived ? <AddArticlesPage project={project} /> : <Navigate to={`${base}/articles`} replace />} />
         <Route path="articles/:articleId" element={<ReaderPage project={project} />} />
+        <Route path="passages" element={<PassagesTab project={project} />} />
         <Route path="codebook" element={<CodebookTab project={project} />} />
         <Route path="members" element={<MembersTab project={project} onChanged={reload} />} />
         <Route path="activity" element={<ActivityTab project={project} />} />

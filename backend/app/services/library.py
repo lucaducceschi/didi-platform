@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS, DataService
 
+from backend.app.errors import conflict, not_found
 from backend.app.models import Annotation, ArticleProgress, Presence, ProjectArticle, User, utcnow
 from backend.app.services.activity import log_activity
 
@@ -28,6 +29,51 @@ def add_articles(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, article
     if added:
         log_activity(db, "articles.added", f"{added} articles", user_id=user_id, project_id=project_id)
     return added
+
+
+def remove_article(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, article_id: str) -> None:
+    """Remove an article from a project, unless it has segments. Nobody's coding is ever lost this way."""
+    condition = (ProjectArticle.project_id == project_id, ProjectArticle.article_id == article_id)
+    # Waits for any segment save in progress on this article, so the count below includes it.
+    if db.scalar(select(ProjectArticle.article_id).where(*condition).with_for_update()) is None:
+        raise not_found("This article in this project")
+    segments, coders = db.execute(
+        select(func.count(), func.count(Annotation.user_id.distinct())).where(
+            Annotation.project_id == project_id, Annotation.article_id == article_id
+        )
+    ).one()
+    if segments:
+        raise conflict(
+            f"This article can't be removed because it has {segments} coded {'passage' if segments == 1 else 'passages'} "
+            f"from {coders} {'coder' if coders == 1 else 'coders'}. Each coder would have to delete their own first."
+        )
+    _delete_articles(db, project_id, [article_id])
+    log_activity(db, "articles.removed", article_id, user_id=user_id, project_id=project_id)
+
+
+def _worked_on(db: Session, project_id: uuid.UUID) -> set:
+    """Articles with a segment or a status from anyone."""
+    segments = select(Annotation.article_id).where(Annotation.project_id == project_id)
+    progress = select(ArticleProgress.article_id).where(ArticleProgress.project_id == project_id)
+    return set(db.scalars(segments.union(progress)))
+
+
+def remove_unstarted_articles(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> int:
+    """Remove every article nobody has started, as after adding too many by mistake."""
+    # Taking the locks first means the check below sees any segment save that was in progress.
+    locked = set(db.scalars(select(ProjectArticle.article_id).where(ProjectArticle.project_id == project_id).with_for_update()))
+    unstarted = sorted(locked - _worked_on(db, project_id))
+    _delete_articles(db, project_id, unstarted)
+    if unstarted:
+        log_activity(db, "articles.removed", f"{len(unstarted)} articles", user_id=user_id, project_id=project_id)
+    return len(unstarted)
+
+
+def _delete_articles(db: Session, project_id: uuid.UUID, article_ids: List[str]) -> None:
+    for index in range(0, len(article_ids), 1000):
+        batch = article_ids[index : index + 1000]
+        for model in (ArticleProgress, Presence, ProjectArticle):
+            db.execute(delete(model).where(model.project_id == project_id, model.article_id.in_(batch)))
 
 
 PRESENCE_TIMEOUT_SECONDS = 90
@@ -187,6 +233,7 @@ def get_library(
 
     return {
         "project_total": len(article_ids),
+        "unstarted_total": len(set(article_ids) - _worked_on(db, project_id)),
         "total": len(filtered),
         "page": page,
         "page_size": page_size,

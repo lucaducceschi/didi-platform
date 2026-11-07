@@ -216,8 +216,9 @@ Don't write production Dockerfiles, CI or infrastructure code in this phase.
 | 1. Accounts, projects and codebook | [`prompts/1_accounts_projects_codebook.md`](prompts/1_accounts_projects_codebook.md) | Task 0 | 2 weeks |
 | 2. Library, reader and highlights | [`prompts/2_library_and_reader.md`](prompts/2_library_and_reader.md) | Task 1 | 1 week |
 | 3. Select and code | [`prompts/3_select_and_code.md`](prompts/3_select_and_code.md) | Task 2 | 1 week |
+| 4. Retrieval and article management | [`prompts/4_retrieval.md`](prompts/4_retrieval.md) | Task 3 | 1 week |
 
-Estimates are judgments for one developer, not measurements. Researchers should try the result after Task 3, before any later phase is planned.
+Estimates are judgments for one developer, not measurements. Researchers were meant to try the result after Task 3. No Ladin researcher is available right now, so on 2026-11-07 Luca chose to keep building. The trial still has to happen before anyone relies on results by Ladin variety, because no Ladin speaker has reviewed those labels.
 
 ## 13. Acceptance criteria for the phase
 
@@ -233,12 +234,11 @@ Estimates are judgments for one developer, not measurements. Researchers should 
 
 ## 14. Later phases
 
-Order to be decided after researchers try Task 3.
+The order can change once researchers have tried the app. Retrieval moved into Task 4.
 
 - **Hosting:** where it runs, login method and backups. Before hosting, check whether full text may be served to up to 10 users, or sent to a hosted model.
 - **Port the analysis views**, then retire Streamlit (about 2–3 weeks, estimated).
 - **Assignments:** leads assign articles to coders.
-- **Retrieval:** all segments by code, variety, source or coder, across articles.
 - **Agreement and gold standard:** double-coding, Krippendorff's alpha, adjudication and an approved consensus version, as in the Workbench's gold stage.
 - **Exchange:** port the QDPX export, add coded segments and import, and confirm the end-position convention by test against a REFI-QDA tool.
 - **AI assistance:** optional and behind the HTTP client in Section 11.

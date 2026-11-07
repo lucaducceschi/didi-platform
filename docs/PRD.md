@@ -177,7 +177,7 @@ For a **1-week working demo**, **Streamlit** combined with **Plotly** is the opt
 | **Day 7** | **Packaging, Docker & Walkthrough** | Zero-config `Dockerfile` and `docker-compose.yml`, dual-remote Git governance synchronization. | **Done** |
 | **Phase 2.1** | **Qualitative Highlighting & Analyst Notes** | SQLite `article_annotations` table, inline quote capture, thematic coding tags, analyst memos, codebook export. | **Next** |
 | **Phase 2.2** | **CAQDAS QDPX Interoperability** | `.qdpx` export for direct import into MAXQDA (primary target; NVivo and ATLAS.ti untested). Article and metadata export is built and awaits a MAXQDA import test; coded segments and import back to DIDI come later. | **In progress** |
-| **Phase 3.1** | **Annotation Workbench** | React and Python app, developed locally: accounts, per-project codebooks, a project library, in-text highlighting and direct text coding for up to 10 researchers. Hosting undecided. See [`docs/coding/PRD.md`](coding/PRD.md). | **Built; awaiting a researcher trial** |
+| **Phase 3.1** | **Annotation Workbench** | React and Python app, developed locally: accounts, per-project codebooks, a project library, in-text highlighting, direct text coding and retrieval of coded passages across articles for up to 10 researchers. Hosting undecided. See [`docs/coding/PRD.md`](coding/PRD.md). | **Built, in use by Luca; researcher trial not yet held** |
 
 ---
 

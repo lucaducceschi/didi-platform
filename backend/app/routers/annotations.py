@@ -28,7 +28,7 @@ def list_annotations(article_id: str, access: ReadAccess, db: Db, scope: Literal
 
 @router.post("/articles/{article_id}/annotations", response_model=AnnotationOut, status_code=201)
 def create_annotation(article_id: str, body: AnnotationCreate, access: MemberAccess, db: Db, response: Response):
-    service.require_article_in_project(db, access.project.id, article_id)
+    service.require_article_in_project(db, access.project.id, article_id, lock=True)
     article = get_corpus().get_article_by_id(article_id)
     if article is None:
         raise not_found("This article")

@@ -11,6 +11,7 @@ const VERBS: Record<string, string> = {
   'member.removed': 'removed the member',
   'member.role_changed': 'changed the role of',
   'articles.added': 'added',
+  'articles.removed': 'removed',
 }
 
 export function describeActivity(entry: ActivityEntry): string {

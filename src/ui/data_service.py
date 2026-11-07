@@ -477,6 +477,17 @@ class DataService:
                 found.update({row["id"]: dict(row) for row in rows})
         return found
 
+    def get_article_texts(self, article_ids: List[str]) -> Dict[str, str]:
+        """Return {id: full_text} for the given articles, leaving out any that aren't in the corpus."""
+        found: Dict[str, str] = {}
+        ids = sorted(set(article_ids))
+        with self._get_connection() as conn:
+            for index in range(0, len(ids), 500):
+                batch = ids[index : index + 500]
+                rows = conn.execute(f"SELECT id, full_text FROM articles WHERE id IN ({','.join('?' for _ in batch)})", batch)
+                found.update({row["id"]: row["full_text"] for row in rows})
+        return found
+
     def get_articles_for_qdpx(self, article_ids: List[str]) -> List[Dict[str, Any]]:
         """Return QDPX document records for the given articles, oldest first."""
         placeholders = ",".join("?" * len(article_ids))

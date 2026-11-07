@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { type SearchFilters, getCorpusSummary, searchArticles } from '../api'
+import { type SearchFilters, getCorpusSummary, listProjects, searchArticles } from '../api'
 import { Snippet } from '../components/Snippet'
 import { useApi } from '../useApi'
 
@@ -49,6 +49,10 @@ export function SearchPage() {
   const [draft, setDraft] = useState(filters.q)
   const summary = useApi((signal) => getCorpusSummary(signal), 'summary')
   const search = useApi((signal) => searchArticles(filters, signal), params.toString())
+  const projects = useApi((signal) => listProjects(signal), 'projects')
+  const addable = (projects.data ?? []).filter((project) => project.can_manage && !project.archived)
+  const carriedFilters = new URLSearchParams(params)
+  carriedFilters.delete('page')
 
   useEffect(() => setDraft(filters.q), [filters.q])
 
@@ -98,6 +102,14 @@ export function SearchPage() {
         {!search.error && (
           <p className="result-count" aria-live="polite">
             {search.loading ? 'Searching…' : `${total.toLocaleString()} ${total === 1 ? 'article' : 'articles'}`}
+          </p>
+        )}
+        {addable.length > 0 && !search.error && total > 0 && (
+          <p className="add-to-project">
+            Add these results to:{' '}
+            {addable.map((project) => (
+              <Link key={project.id} className="tag-link" to={`/projects/${project.id}/articles/add?${carriedFilters}`}>{project.name}</Link>
+            ))}
           </p>
         )}
         {!search.loading && !search.error && total === 0 && (

@@ -18,6 +18,7 @@ from backend.app.schemas_work import (
     ProgressUpdate,
     ProjectArticlesAdded,
     ProjectArticlesFromSearch,
+    ProjectArticlesRemoved,
     ProjectSearchResponse,
 )
 from backend.app.services import library
@@ -39,6 +40,19 @@ def get_library(
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ):
     return library.get_library(db, get_corpus(), access.project.id, access.user.id, language, source, status, page, page_size)
+
+
+@router.post("/articles/remove-unstarted", response_model=ProjectArticlesRemoved)
+def remove_unstarted_articles(access: ManagerAccess, db: Db):
+    removed = library.remove_unstarted_articles(db, access.project.id, access.user.id)
+    db.commit()
+    return {"removed": removed}
+
+
+@router.delete("/articles/{article_id}", status_code=204)
+def remove_article(article_id: str, access: ManagerAccess, db: Db) -> None:
+    library.remove_article(db, access.project.id, access.user.id, article_id)
+    db.commit()
 
 
 @router.get("/article-search", response_model=ProjectSearchResponse)

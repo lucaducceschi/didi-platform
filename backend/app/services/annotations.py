@@ -28,8 +28,12 @@ def trim_selection(text: str, start: int, end: int) -> Tuple[int, int]:
     return start, end
 
 
-def require_article_in_project(db: Session, project_id: uuid.UUID, article_id: str) -> None:
-    if db.get(ProjectArticle, (project_id, article_id)) is None:
+def require_article_in_project(db: Session, project_id: uuid.UUID, article_id: str, lock: bool = False) -> None:
+    """With lock, a removal of this article waits until the caller's transaction ends, and sees its segment."""
+    query = select(ProjectArticle.article_id).where(ProjectArticle.project_id == project_id, ProjectArticle.article_id == article_id)
+    if lock:
+        query = query.with_for_update(read=True, key_share=True)
+    if db.scalar(query) is None:
         raise not_found("This article in this project")
 
 

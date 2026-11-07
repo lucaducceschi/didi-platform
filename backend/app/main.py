@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from backend.app.deps import get_current_user
-from backend.app.routers import annotations, auth, codes, corpus, health, library, projects, users
+from backend.app.routers import annotations, auth, codes, corpus, health, library, passages, projects, users
 
 app = FastAPI(title="DIDI Platform API")
 
@@ -21,4 +21,5 @@ app.include_router(projects.router)
 app.include_router(codes.router)
 app.include_router(annotations.router)
 app.include_router(library.router)
+app.include_router(passages.router)
 app.include_router(corpus.router, dependencies=[Depends(get_current_user)])

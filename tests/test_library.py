@@ -225,3 +225,73 @@ def test_streamlit_no_longer_uses_the_old_annotation_table():
         assert not hasattr(DataService, name)
     source = Path("src/ui/app.py").read_text(encoding="utf-8") + Path("src/ui/data_service.py").read_text(encoding="utf-8")
     assert "article_annotations" not in source
+
+
+def test_removing_an_article_needs_a_lead_and_no_segments(world):
+    url = f"{world.url}/articles"
+    assert world.coder.delete(f"{url}/fx_it_1").status_code == 403
+    assert world.outsider.delete(f"{url}/fx_it_1").status_code == 404
+    assert world.anonymous.delete(f"{url}/fx_it_1").status_code == 401
+    assert world.lead.delete(f"{url}/not_in_project").status_code == 404
+
+    code = make_code(world, "A")
+    add_segment(world.coder, world, code["id"], 0, 3)
+    add_segment(world.coder2, world, code["id"], 0, 3)
+    refused = world.lead.delete(f"{url}/fx_de_1")
+    assert refused.status_code == 409 and "2 coded passages from 2 coders" in refused.json()["detail"]
+    assert world.coder.get(f"{world.url}/passages").json()["total"] == 2
+
+    set_progress(world, "coder", "fx_it_1", "done")
+    assert world.lead.delete(f"{url}/fx_it_1").status_code == 204
+    library_ids = {item["id"] for item in world.lead.get(f"{world.url}/library").json()["results"]}
+    assert "fx_it_1" not in library_ids and "fx_de_1" in library_ids
+    # Adding it back starts clean, and the removal is on record.
+    assert world.lead.post(url, json={"article_ids": ["fx_it_1"]}).json()["added"] == 1
+    assert row(world.coder.get(f"{world.url}/library").json(), "fx_it_1")["my_status"] == "not_started"
+    assert "articles.removed" in {entry["action"] for entry in world.lead.get(f"{world.url}/activity").json()}
+
+
+def test_removing_everything_nobody_has_started(world):
+    code = make_code(world, "A")
+    add_segment(world.coder, world, code["id"], 0, 3)
+    set_progress(world, "coder2", "fx_it_1", "done")
+    assert world.lead.get(f"{world.url}/library").json()["unstarted_total"] == 3
+
+    url = f"{world.url}/articles/remove-unstarted"
+    assert world.coder.post(url).status_code == 403
+    assert world.lead.post(url).json() == {"removed": 3}
+    library_ids = {item["id"] for item in world.lead.get(f"{world.url}/library").json()["results"]}
+    assert library_ids == {"fx_de_1", "fx_it_1"}
+    assert world.lead.post(url).json() == {"removed": 0}
+
+
+def test_a_removal_waits_for_a_segment_save_in_progress_and_then_refuses(world):
+    import pytest
+    from fastapi import HTTPException
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+
+    from backend.app.models import Annotation
+    from backend.app.services.annotations import require_article_in_project
+
+    code = make_code(world, "A")
+    project, article = world.ids["project"], "fx_it_1"
+    fixed = world.coder.get(f"/api/articles/{article}").json()["full_text"]
+    with Session(get_engine()) as saving, Session(get_engine()) as removing:
+        require_article_in_project(saving, project, article, lock=True)
+        saving.add(Annotation(
+            project_id=project, article_id=article, user_id=world.ids["coder"], code_id=code["id"],
+            start_pos=0, end_pos=3, quote=fixed[:3], text_sha256="x",
+        ))
+        saving.flush()
+
+        # While the save is open, the removal has to wait.
+        removing.execute(text("SET LOCAL lock_timeout = '200ms'"))
+        with pytest.raises(OperationalError):
+            library.remove_article(removing, project, world.ids["lead"], article)
+        removing.rollback()
+
+        saving.commit()
+        with pytest.raises(HTTPException) as refused:
+            library.remove_article(removing, project, world.ids["lead"], article)
+        assert refused.value.status_code == 409

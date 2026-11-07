@@ -237,6 +237,29 @@ td select { width: auto; min-height: 36px; padding: 4px 8px; }
 .library-list li { padding: 12px 0; border-top: 1px solid var(--border); }
 .library-list h2 { font-size: 1rem; margin-bottom: 2px; overflow-wrap: anywhere; }
 .library-list .result-meta { margin: 0; }
+.library-remove { min-height: 30px; margin-top: 8px; padding: 0 10px; font-size: 0.8125rem; }
+.add-to-project { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 8px; font-size: 0.875rem; color: var(--muted); }
+
+.passage-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; align-items: start; }
+.code-tree { display: flex; flex-direction: column; gap: 2px; }
+.code-tree-item { display: flex; align-items: flex-start; gap: 8px; width: 100%; min-height: 32px; padding: 6px 8px; background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--text); text-align: left; font-size: 0.875rem; line-height: 1.35; }
+.code-tree-item .swatch { margin-top: 3px; }
+.code-tree-item .name { overflow-wrap: anywhere; }
+.code-tree-item .count { margin-left: auto; padding-left: 8px; color: var(--muted); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.code-tree-item[aria-pressed='true'] { background: var(--surface); border-color: var(--accent); }
+.code-tree-item.empty .name { color: var(--muted); }
+.subcodes-toggle { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 0.875rem; }
+.passage-list { margin: 0; padding: 0; list-style: none; }
+.passage-list li { padding: 16px 0; border-top: 1px solid var(--border); }
+.passage-code { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 6px; font-size: 0.875rem; font-weight: 600; overflow-wrap: anywhere; }
+.passage-code .swatch { margin-top: 4px; }
+.passage-text { margin: 0 0 8px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.passage-text .context { color: var(--muted); }
+.passage-quote { background: color-mix(in srgb, var(--hl) 32%, transparent); border-radius: 2px; }
+.button-link.button-quiet { border: 1px solid var(--border); }
+.passage-summary { justify-content: space-between; }
+.passage-memo { margin: 0 0 8px; padding-left: 10px; border-left: 2px solid var(--border); font-size: 0.875rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.passage-list .result-meta { margin: 0; overflow-wrap: anywhere; }
 .coder-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .coder-chip { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 0.8125rem; color: var(--muted); }
 .coder-chip strong { color: var(--text); font-weight: 600; }
@@ -300,7 +323,8 @@ td select { width: auto; min-height: 36px; padding: 4px 8px; }
 .segment-detail .label { color: var(--muted); font-size: 0.8125rem; }
 
 @media (max-width: 860px) {
-  .reader-layout, .add-layout { grid-template-columns: minmax(0, 1fr); }
+  .reader-layout, .add-layout, .passage-layout { grid-template-columns: minmax(0, 1fr); }
+  .code-tree { max-height: 240px; overflow-y: auto; }
   .reader-side { position: static; max-height: none; overflow: visible; }
   .two-column, .codebook-layout { grid-template-columns: minmax(0, 1fr); }
   .activity-list li { grid-template-columns: minmax(0, 1fr); gap: 2px; }

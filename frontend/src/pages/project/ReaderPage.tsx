@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router'
 import { type Annotation, ApiError, type MyStatus, type Project, type UserBrief, getProgress, getProjectArticle, leaveArticle, listAnnotations, listCodes, sendHeartbeat, setProgress } from '../../api'
 import { useAuth } from '../../auth'
 import { flattenCodeTree } from '../../codebook'
@@ -55,7 +55,11 @@ const STATUS_TEXT: Record<MyStatus, string> = {
 export function ReaderPage({ project }: { project: Project }) {
   const { articleId = '' } = useParams()
   const { user } = useAuth()
-  const [scope, setScope] = useState<'mine' | 'all'>('mine')
+  const [searchParams] = useSearchParams()
+  const targetSegment = searchParams.get('segment')
+  const backToPassages = (useLocation().state as { back?: string } | null)?.back
+  // A passage opened from the list may be someone else's, so it has to be in view.
+  const [scope, setScope] = useState<'mine' | 'all'>(targetSegment ? 'all' : 'mine')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -115,7 +119,21 @@ export function ReaderPage({ project }: { project: Project }) {
     document.querySelector(`[data-segments~="${segment.id}"]`)?.scrollIntoView({ block: 'center' })
   }, [])
 
-  const backLink = <Link to={`/projects/${project.id}/articles`}>Back to articles</Link>
+  const openedTarget = useRef<string | null>(null)
+  useEffect(() => {
+    if (!targetSegment || openedTarget.current === targetSegment || !annotations.data || !article.data) return
+    openedTarget.current = targetSegment
+    if (annotations.data.some((segment) => segment.id === targetSegment)) {
+      setSelectedIds([targetSegment])
+      document.querySelector(`[data-segments~="${targetSegment}"]`)?.scrollIntoView({ block: 'center' })
+    } else {
+      setNotice('That passage no longer exists. Its coder may have deleted it.')
+    }
+  }, [targetSegment, annotations.data, article.data])
+
+  const backLink = backToPassages
+    ? <Link to={backToPassages}>Back to passages</Link>
+    : <Link to={`/projects/${project.id}/articles`}>Back to articles</Link>
 
   if (article.error) {
     const notFound = article.error instanceof ApiError && article.error.status === 404

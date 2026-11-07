@@ -156,6 +156,10 @@ class ProjectArticlesAdded(BaseModel):
     already_present: int
 
 
+class ProjectArticlesRemoved(BaseModel):
+    removed: int
+
+
 class ProjectArticlesFromSearch(BaseModel):
     q: str = ""
     source: Optional[List[str]] = None
@@ -192,12 +196,56 @@ class LibraryFacet(BaseModel):
 
 class LibraryResponse(BaseModel):
     project_total: int
+    unstarted_total: int
     total: int
     page: int
     page_size: int
     results: List[LibraryArticle]
     languages: List[LibraryFacet]
     sources: List[LibraryFacet]
+
+
+class Passage(BaseModel):
+    id: uuid.UUID
+    article_id: str
+    in_corpus: bool
+    article_title: str
+    publish_date: Optional[str]
+    source_label: Optional[str]
+    language: Optional[str]
+    language_label: Optional[str]
+    code_id: uuid.UUID
+    code_path: str
+    code_color: str
+    user: UserBrief
+    quote: str
+    memo: str
+    status: str
+    before: str
+    after: str
+
+
+class PassageCodeCount(BaseModel):
+    id: uuid.UUID
+    direct: int
+    total: int
+
+
+class PassageCoderCount(BaseModel):
+    user: UserBrief
+    count: int
+
+
+class PassagesResponse(BaseModel):
+    project_total: int
+    total: int
+    page: int
+    page_size: int
+    results: List[Passage]
+    codes: List[PassageCodeCount]
+    languages: List[LibraryFacet]
+    sources: List[LibraryFacet]
+    coders: List[PassageCoderCount]
 
 
 class ProjectSearchResult(BaseModel):

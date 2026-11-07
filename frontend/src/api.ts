@@ -256,6 +256,7 @@ export interface LibraryArticle {
 
 export interface LibraryResponse {
   project_total: number
+  unstarted_total: number
   total: number
   page: number
   page_size: number
@@ -324,6 +325,47 @@ export const addArticles = (projectId: string, article_ids: string[]) =>
   request<ArticlesAdded>('POST', `/api/projects/${projectId}/articles`, { article_ids })
 export const addArticlesFromSearch = (projectId: string, body: { q: string; source: string[]; language: string[] }) =>
   request<ArticlesAdded>('POST', `/api/projects/${projectId}/articles/from-search`, body)
+
+export const removeArticle = (projectId: string, articleId: string) =>
+  request<void>('DELETE', `/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}`)
+export const removeUnstartedArticles = (projectId: string) =>
+  request<{ removed: number }>('POST', `/api/projects/${projectId}/articles/remove-unstarted`)
+
+export interface Passage {
+  id: string
+  article_id: string
+  in_corpus: boolean
+  article_title: string
+  publish_date: string | null
+  source_label: string | null
+  language: string | null
+  language_label: string | null
+  code_id: string
+  code_path: string
+  code_color: string
+  user: UserBrief
+  quote: string
+  memo: string
+  status: 'active' | 'stale'
+  before: string
+  after: string
+}
+
+export interface PassagesResponse {
+  project_total: number
+  total: number
+  page: number
+  page_size: number
+  results: Passage[]
+  codes: { id: string; direct: number; total: number }[]
+  languages: { id: string; label: string; count: number }[]
+  sources: { id: string; label: string; count: number }[]
+  coders: { user: UserBrief; count: number }[]
+}
+
+export const getPassages = (projectId: string, query: URLSearchParams, signal?: AbortSignal) =>
+  getJson<PassagesResponse>(`/api/projects/${projectId}/passages?${query}`, signal)
+export const passagesCsvPath = (projectId: string, query: URLSearchParams) => `/api/projects/${projectId}/passages.csv?${query}`
 
 export const getProjectArticle = (projectId: string, articleId: string, signal?: AbortSignal) =>
   getJson<ArticleDetail>(`/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}`, signal)

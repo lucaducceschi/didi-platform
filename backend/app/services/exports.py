@@ -36,6 +36,10 @@ def annotations_csv(db: Session, corpus: DataService, project_id: uuid.UUID, pro
             .order_by(Annotation.article_id, Annotation.start_pos, Annotation.created_at)
         )
     )
+    return write_annotations_csv(db, corpus, project_id, project_name, annotations)
+
+
+def write_annotations_csv(db: Session, corpus: DataService, project_id: uuid.UUID, project_name: str, annotations: list) -> bytes:
     paths = code_paths(db, project_id)
     articles = corpus.get_article_metadata([a.article_id for a in annotations])
     rows = []
