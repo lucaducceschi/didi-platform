@@ -19,6 +19,17 @@ from src.nlp.framing_divergence import (
     compute_dunning_keyness,
     compute_moral_divergence
 )
+from src.languages import (
+    LANGUAGES,
+    LANGUAGE_LABELS,
+    get_active_language_codes,
+    get_all_language_codes,
+    get_language,
+    get_language_caution,
+    get_language_label,
+    get_thesaurus,
+    is_language_active,
+)
 from src.nlp.hybrid_search import HybridSearchEngine
 from src.ui.qdpx import build_qdpx
 
@@ -42,13 +53,6 @@ FOUNDATION_POLE_COLS = [
     "sanctity_virtue_density", "sanctity_vice_density"
 ]
 
-LANGUAGE_LABELS = {
-    "de": "German (de)",
-    "it": "Italian (it)",
-    "lld_gherd": "Ladin Gherdëina (lld_gherd)",
-    "lld_badia": "Ladin Val Badia (lld_badia)",
-    "lld_fascia": "Ladin Fascia (lld_fascia)"
-}
 
 QDPX_EXPORT_LIMIT = 1500
 
@@ -59,63 +63,9 @@ SOURCE_LABELS = {
     "trail": "RaiNews TGR TRAIL"
 }
 
-# Regional Trilingual Thesaurus linking key South Tyrolean concepts across DE, IT, and Ladin
-TRILINGUAL_THESAURUS: Dict[str, str] = {
-    "scuola": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "scuole": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "scolastica": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "scolastico": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "schule": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "schulen": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "scola": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "scoles": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "bildung": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-    "istruzione": "scuola* OR scuole* OR scolast* OR schule* OR schul* OR scola* OR bildung* OR istruzion*",
-
-    "autonomia": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-    "autonomie": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-    "statuto": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-    "statut": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-    "competenze": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-    "competenza": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-    "zuständigkeit": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-    "zuständigkeiten": "autonom* OR zuständig* OR competenz* OR cumpetënz* OR statut*",
-
-    "lupo": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "lupi": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "wolf": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "wölfe": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "orso": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "orsi": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "bär": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "bären": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-    "großraubwild": "wolf* OR wölfe* OR lupo* OR lupi* OR bär* OR bären* OR orso* OR orsi* OR großraubwild* OR lfs* OR urs*",
-
-    "brenner": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
-    "brennero": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
-    "transit": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
-    "lueg": "brenner* OR brennero* OR transit* OR lueg* OR autobahn* OR autostrad*",
-
-    "koalition": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
-    "coalizione": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
-    "landesregierung": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
-    "giunta": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
-    "jonta": "koalition* OR coalizion* OR regierung* OR giunta* OR jonta* OR kompatscher*",
-    "kompatscher": "kompatscher* OR svp*",
-    "svp": "svp* OR volkspartei*",
-
-    "minoranza": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
-    "minoranze": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
-    "minderheit": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
-    "minderheiten": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
-    "proporz": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
-    "sprachgruppe": "minderheit* OR minoranz* OR minorit* OR proporz* OR sprachgrupp* OR censiment*",
-
-    "bilinguismo": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
-    "zweisprachigkeit": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
-    "muttersprache": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
-    "madrelingua": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
-}
+# Regional Trilingual Thesaurus linking key South Tyrolean concepts across DE, IT, and Ladin.
+# Single source of truth is src.languages.
+TRILINGUAL_THESAURUS: Dict[str, str] = get_thesaurus(active_only=False)
 
 
 class DataService:
@@ -181,33 +131,71 @@ class DataService:
 
         return clean_q, None
 
-    def get_corpus_summary(self) -> Dict[str, Any]:
-        """Return global counts and aggregate stats for metric cards."""
+    def get_corpus_summary(self, active_only: bool = False) -> Dict[str, Any]:
+        """Return global counts and aggregate stats for metric cards. Includes all languages by default."""
+        active_codes = get_active_language_codes()
+        where_sql = f"WHERE language IN ({','.join('?' for _ in active_codes)})" if active_only else ""
+        params = list(active_codes) if active_only else []
         with self._get_connection() as conn:
             cur = conn.cursor()
-            cur.execute("""
+            cur.execute(f"""
                 SELECT 
                     count(*) as total_articles,
                     sum(word_count) as total_words,
                     min(publish_date) as min_date,
                     max(publish_date) as max_date
                 FROM articles
-            """)
+                {where_sql}
+            """, params)
             totals = dict(cur.fetchone())
 
-            cur.execute("SELECT count(*) as count FROM article_nlp_metrics")
+            if active_only:
+                cur.execute(f"""
+                    SELECT count(*) as count
+                    FROM article_nlp_metrics m
+                    JOIN articles a ON a.id = m.article_id
+                    WHERE a.language IN ({','.join('?' for _ in active_codes)})
+                """, params)
+            else:
+                cur.execute("SELECT count(*) as count FROM article_nlp_metrics")
             nlp_count = cur.fetchone()["count"]
             totals["nlp_count"] = nlp_count
 
             # Counts by source
-            cur.execute("SELECT source, count(*) as count, sum(word_count) as words FROM articles GROUP BY source ORDER BY count DESC")
+            cur.execute(f"SELECT source, count(*) as count, sum(word_count) as words FROM articles {where_sql} GROUP BY source ORDER BY count DESC", params)
             totals["sources"] = {r["source"]: {"count": r["count"], "words": r["words"]} for r in cur.fetchall()}
 
             # Counts by language
-            cur.execute("SELECT language, count(*) as count, sum(word_count) as words FROM articles GROUP BY language ORDER BY count DESC")
+            cur.execute(f"SELECT language, count(*) as count, sum(word_count) as words FROM articles {where_sql} GROUP BY language ORDER BY count DESC", params)
             totals["languages"] = {r["language"]: {"count": r["count"], "words": r["words"]} for r in cur.fetchall()}
 
             return totals
+
+    def count_unconfigured_matches(
+        self,
+        query: str = "",
+        sources: Optional[List[str]] = None,
+    ) -> int:
+        """Count articles matching query/sources whose language is unconfigured/deferred."""
+        active_codes = get_active_language_codes()
+        where_clauses: List[str] = [f"a.language NOT IN ({','.join('?' for _ in active_codes)})"]
+        params: List[Any] = list(active_codes)
+
+        has_query = bool(query and query.strip())
+        if has_query:
+            clean_q, _ = self.build_fts_query(query)
+            where_clauses.append("articles_fts MATCH ?")
+            params.append(clean_q)
+
+        if sources:
+            placeholders = ",".join("?" for _ in sources)
+            where_clauses.append(f"a.source IN ({placeholders})")
+            params.extend(sources)
+
+        from_sql = "articles_fts f JOIN articles a ON a.id = f.id" if has_query else "articles a"
+        sql = f"SELECT count(*) as count FROM {from_sql} WHERE {' AND '.join(where_clauses)}"
+        with self._get_connection() as conn:
+            return conn.execute(sql, params).fetchone()["count"]
 
     def search_articles(
         self,
@@ -222,6 +210,7 @@ class DataService:
         expand_trilingual: bool = True,
         enable_prefix: bool = True,
         use_hybrid: bool = True,
+        active_only: bool = False,
         limit: int = 50,
         offset: int = 0
     ) -> Tuple[List[Dict[str, Any]], int]:
@@ -250,10 +239,21 @@ class DataService:
             where_clauses.append(f"a.source IN ({placeholders})")
             params.extend(sources)
 
-        if languages:
-            placeholders = ",".join("?" for _ in languages)
+        active_codes = get_active_language_codes()
+        if active_only:
+            if languages:
+                effective_langs = [l for l in languages if l in active_codes]
+                if not effective_langs:
+                    return [], 0
+            else:
+                effective_langs = list(active_codes)
+        else:
+            effective_langs = languages
+
+        if effective_langs:
+            placeholders = ",".join("?" for _ in effective_langs)
             where_clauses.append(f"a.language IN ({placeholders})")
-            params.extend(languages)
+            params.extend(effective_langs)
 
         if min_date:
             where_clauses.append("a.publish_date >= ?")
@@ -448,6 +448,7 @@ class DataService:
         query: str = "",
         sources: Optional[List[str]] = None,
         languages: Optional[List[str]] = None,
+        active_only: bool = False,
     ) -> List[str]:
         """Return the IDs of all articles matching a search, without the cost of loading their text."""
         where_clauses: List[str] = []
@@ -460,9 +461,20 @@ class DataService:
         if sources:
             where_clauses.append(f"a.source IN ({','.join('?' for _ in sources)})")
             params.extend(sources)
-        if languages:
-            where_clauses.append(f"a.language IN ({','.join('?' for _ in languages)})")
-            params.extend(languages)
+        active_codes = get_active_language_codes()
+        if active_only:
+            if languages:
+                effective_langs = [l for l in languages if l in active_codes]
+                if not effective_langs:
+                    return []
+            else:
+                effective_langs = list(active_codes)
+        else:
+            effective_langs = languages
+
+        if effective_langs:
+            where_clauses.append(f"a.language IN ({','.join('?' for _ in effective_langs)})")
+            params.extend(effective_langs)
         from_sql = "articles_fts f JOIN articles a ON a.id = f.id" if has_query else "articles a"
         where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
         with self._get_connection() as conn:

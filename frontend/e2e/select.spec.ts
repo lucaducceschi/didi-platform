@@ -193,7 +193,7 @@ test('a selection across existing highlights saves the right positions', async (
 })
 
 test('selections that begin outside the reader or are empty are ignored', async ({ page }) => {
-  await open(page, 'carl', ARTICLES.ladin)
+  await open(page, 'carl', ARTICLES.german_taz)
   // Scripted: begins in the title, ends in the article.
   await page.evaluate(() => {
     const root = document.querySelector('[data-testid="article-text"]')!
@@ -276,7 +276,7 @@ test('saving keeps the scroll position on a long article', async ({ page }) => {
 })
 
 test('a new code can be made while coding, and a repeat shows a clear message', async ({ page }) => {
-  await open(page, 'dora', ARTICLES.ladin)
+  await open(page, 'dora', ARTICLES.german_taz)
   await selectByPosition(page, 5, 25)
   await panel(page).getByLabel('New code').fill(`Made ${suffix}`)
   await panel(page).getByRole('button', { name: 'Add' }).click()
@@ -290,7 +290,7 @@ test('a new code can be made while coding, and a repeat shows a clear message', 
 })
 
 test('progress: coding starts it, and it can be marked done and reopened', async ({ page }) => {
-  await open(page, 'dora', ARTICLES.ladin)
+  await open(page, 'dora', ARTICLES.german_taz)
   await expect(page.getByText('Your status: In progress')).toBeVisible()
   await page.getByRole('button', { name: 'Mark done' }).click()
   await expect(page.getByText('Your status: Done')).toBeVisible()
@@ -402,7 +402,7 @@ test('editing: your own segment can change, others cannot, and tabs conflict saf
 
 test('someone who cannot code here gets no coding panel', async ({ page }) => {
   await logIn(page, ADMIN.username, ADMIN.password)
-  await page.goto(articleUrl(ARTICLES.ladin))
+  await page.goto(articleUrl(ARTICLES.german_taz))
   await expect(page.getByTestId('article-text')).toBeVisible()
   await selectByPosition(page, 5, 25)
   await expect(panel(page)).toHaveCount(0)

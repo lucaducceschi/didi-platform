@@ -119,6 +119,11 @@ export function LibraryTab({ project }: { project: Project }) {
 
       <ErrorMessage error={error ?? removal.error} />
       {notice && <p className="message" role="status">{notice}</p>}
+      {canAdd && (data?.hidden_articles ?? 0) > 0 && (
+        <p className="message" role="note">
+          {(data?.hidden_articles ?? 0).toLocaleString()} {data?.hidden_articles === 1 ? 'article' : 'articles'} in unconfigured languages are hidden from this view.
+        </p>
+      )}
       {data && (
         <p className="result-count" aria-live="polite">
           {data.project_total === 0 ? '' : `${data.total.toLocaleString()} ${data.total === 1 ? 'article' : 'articles'}`}

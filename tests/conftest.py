@@ -161,7 +161,7 @@ def world(clean_database, password_hash):
             db.add(ProjectMember(project_id=state.ids["project"], user_id=state.ids[user_key], role=role))
         db.add(ProjectMember(project_id=state.ids["other_project"], user_id=state.ids["outsider"], role="lead"))
         db.add(ProjectMember(project_id=state.ids["other_project"], user_id=state.ids["coder"], role="lead"))
-        for article_id in ("fx_de_1", "fx_it_1", "fx_lld_nfd", "fx_lld_crlf", "fx_markup"):
+        for article_id in ("fx_de_1", "fx_it_1", "fx_de_nfd", "fx_it_crlf", "fx_markup"):
             db.add(ProjectArticle(project_id=state.ids["project"], article_id=article_id, added_by=state.ids["admin"]))
         db.commit()
     for name in ("admin", "member_admin", "lead", "coder", "coder2", "outsider"):

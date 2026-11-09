@@ -39,7 +39,10 @@ def get_library(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ):
-    return library.get_library(db, get_corpus(), access.project.id, access.user.id, language, source, status, page, page_size)
+    res = library.get_library(db, get_corpus(), access.project.id, access.user.id, language, source, status, page, page_size)
+    if not (access.is_lead or access.user.is_admin):
+        res["hidden_articles"] = 0
+    return res
 
 
 @router.post("/articles/remove-unstarted", response_model=ProjectArticlesRemoved)
@@ -68,9 +71,11 @@ def search_for_project(
     corpus = get_corpus()
     try:
         rows, total = corpus.search_articles(
-            query=q, sources=source, languages=language, use_hybrid=False, limit=page_size, offset=(page - 1) * page_size
+            query=q, sources=source, languages=language, use_hybrid=False, active_only=True, limit=page_size, offset=(page - 1) * page_size
         )
-        all_matches = set(corpus.search_article_ids(q, source, language))
+        all_matches = set(corpus.search_article_ids(q, source, language, active_only=True))
+        can_see_hidden = access.is_lead or access.user.is_admin
+        hidden_articles = (corpus.count_unconfigured_matches(query=q, sources=source) if q.strip() else 0) if can_see_hidden else 0
     except sqlite3.OperationalError:
         if q.strip():
             logger.info("Rejected search query %r", q, exc_info=True)
@@ -82,6 +87,7 @@ def search_for_project(
         "in_project_total": len(all_matches & in_project),
         "page": page,
         "page_size": page_size,
+        "hidden_articles": hidden_articles,
         "results": [
             {
                 "id": row["id"],
@@ -101,7 +107,7 @@ def search_for_project(
 @router.post("/articles/from-search", response_model=ProjectArticlesAdded)
 def add_from_search(body: ProjectArticlesFromSearch, access: ManagerAccess, db: Db):
     try:
-        ids = get_corpus().search_article_ids(body.q, body.source, body.language)
+        ids = get_corpus().search_article_ids(body.q, body.source, body.language, active_only=True)
     except sqlite3.OperationalError:
         if body.q.strip():
             raise HTTPException(status_code=400, detail=BAD_SEARCH)

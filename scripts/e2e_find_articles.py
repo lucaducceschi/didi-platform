@@ -28,7 +28,7 @@ def main() -> None:
         "long": max(rows, key=lambda row: row[3])[0],
         "german": first(lambda row: row[1] == "de" and row[3] > 40),
         "italian": first(lambda row: row[1] == "it" and row[3] > 40),
-        "ladin": first(lambda row: row[1] == "lld_gherd" and row[3] > 40),
+        "german_taz": first(lambda row: row[1] == "de" and row[0].startswith("taz_") and row[3] > 40),
     }))
 
 

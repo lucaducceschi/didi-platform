@@ -34,11 +34,11 @@ test('set up two coders with passages in two varieties', async ({ playwright, ba
   projectId = (await json(await admin.post('/api/projects', { data: { name: 'Passages study', lead_user_id: ids.pia, codebook: { mode: 'empty' } } }))).id
   await json(await admin.post(`/api/projects/${projectId}/members`, { data: { user_id: ids.oskar, role: 'coder' } }))
 
-  for (const language of ['de', 'lld_gherd', 'it']) {
-    const found = (await json(await admin.get(`/api/articles/search?q=&language=${language}&page_size=1`))).results[0]
-    const full = await json(await admin.get(`/api/articles/${encodeURIComponent(found.id)}`))
-    articles[language] = { id: found.id, title: found.title, text: full.full_text }
-  }
+  const foundDe = (await json(await admin.get('/api/articles/search?q=&language=de&page_size=2'))).results
+  const foundIt = (await json(await admin.get('/api/articles/search?q=&language=it&page_size=1'))).results[0]
+  articles.de = { id: foundDe[0].id, title: foundDe[0].title, text: (await json(await admin.get(`/api/articles/${encodeURIComponent(foundDe[0].id)}`))).full_text }
+  articles.de2 = { id: foundDe[1].id, title: foundDe[1].title, text: (await json(await admin.get(`/api/articles/${encodeURIComponent(foundDe[1].id)}`))).full_text }
+  articles.it = { id: foundIt.id, title: foundIt.title, text: (await json(await admin.get(`/api/articles/${encodeURIComponent(foundIt.id)}`))).full_text }
   const pia = await apiAs(playwright, baseURL!, 'pia')
   const oskar = await apiAs(playwright, baseURL!, 'oskar')
   await json(await pia.post(`/api/projects/${projectId}/articles`, { data: { article_ids: Object.values(articles).map((article) => article.id) } }))
@@ -49,7 +49,7 @@ test('set up two coders with passages in two varieties', async ({ playwright, ba
   const save = (client: APIRequestContext, language: string, code: string, memo = '') =>
     client.post(`${url}/articles/${encodeURIComponent(articles[language].id)}/annotations`, { data: { start: 20, end: 60, code_id: code, memo } })
   await json(await save(pia, 'de', codes.parent, 'A note by Pia'))
-  oskarSegment = (await json(await save(oskar, 'lld_gherd', codes.child))).id
+  oskarSegment = (await json(await save(oskar, 'it', codes.child))).id
 })
 
 test('a member starts on their own passages, and can see everyone', async ({ page, baseURL }) => {
@@ -78,24 +78,24 @@ test('a code includes its subcodes unless turned off, and counts roll up', async
   await expect(page).toHaveURL(/subcodes=false/)
 })
 
-test('filtering by a Ladin variety shows the caution, and only then', async ({ page, baseURL }) => {
+test('filtering by variety filters passages without caution on active languages', async ({ page, baseURL }) => {
   await open(page, baseURL!, 'pia')
   await page.getByLabel('Coder').selectOption({ label: 'Everyone' })
   await expect(cards(page)).toHaveCount(2)
   const caution = page.getByRole('note')
   await expect(caution).toHaveCount(0)
-  await page.getByLabel('Variety').selectOption({ value: 'lld_gherd' })
+  await page.getByLabel('Variety').selectOption({ value: 'it' })
   await expect(cards(page)).toHaveCount(1)
-  await expect(caution).toContainText('No Ladin speaker has reviewed')
+  await expect(caution).toHaveCount(0)
 })
 
 test("another coder's passage opens selected in its article, and the way back keeps the filters", async ({ page, baseURL }) => {
   await open(page, baseURL!, 'pia')
   await page.getByLabel('Coder').selectOption({ label: 'Everyone' })
-  await page.getByLabel('Variety').selectOption({ value: 'lld_gherd' })
+  await page.getByLabel('Variety').selectOption({ value: 'it' })
   await expect(cards(page)).toHaveCount(1)
   const filtered = page.url()
-  await cards(page).getByRole('link', { name: articles.lld_gherd.title }).click()
+  await cards(page).getByRole('link', { name: articles.it.title }).click()
 
   const highlight = page.locator(`[data-segments~="${oskarSegment}"]`).first()
   await expect(highlight).toHaveClass(/hl-selected/)
@@ -137,8 +137,9 @@ test('a lead removes articles, but never one with coded passages', async ({ page
   await page.getByRole('button', { name: 'Remove articles nobody has started (1)…' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Remove 1 articles' }).click()
   await expect(page.getByRole('status')).toContainText('Removed 1 article that nobody had started')
-  await expect(page.getByRole('heading', { name: articles.it.title })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: articles.de2.title })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: articles.de.title })).toBeVisible()
+  await expect(page.getByRole('heading', { name: articles.it.title })).toBeVisible()
 })
 
 test('a coder gets no removal buttons', async ({ page, baseURL }) => {

@@ -28,14 +28,14 @@ def test_filters_by_code_coder_variety_source_and_status(world):
     a, b = make_code(world, "A"), make_code(world, "B")
     first = add_segment(world.coder, world, a["id"], 0, 3, article="fx_de_1")
     add_segment(world.coder2, world, b["id"], 0, 3, article="fx_it_1")
-    add_segment(world.coder, world, b["id"], 0, 3, article="fx_lld_crlf")
+    add_segment(world.coder, world, b["id"], 0, 3, article="fx_markup")
 
     assert passages(world.coder, world)["total"] == 3
-    assert {item["article_id"] for item in passages(world.coder, world, code=b["id"])["results"]} == {"fx_it_1", "fx_lld_crlf"}
+    assert {item["article_id"] for item in passages(world.coder, world, code=b["id"])["results"]} == {"fx_it_1", "fx_markup"}
     assert [item["id"] for item in passages(world.coder, world, code=a["id"])["results"]] == [first["id"]]
-    assert {item["article_id"] for item in passages(world.coder, world, coder=str(world.ids["coder"]))["results"]} == {"fx_de_1", "fx_lld_crlf"}
+    assert {item["article_id"] for item in passages(world.coder, world, coder=str(world.ids["coder"]))["results"]} == {"fx_de_1", "fx_markup"}
     assert [item["article_id"] for item in passages(world.coder, world, language="it")["results"]] == ["fx_it_1"]
-    assert [item["article_id"] for item in passages(world.coder, world, source="trail")["results"]] == ["fx_lld_crlf"]
+    assert len(passages(world.coder, world, source="salto")["results"]) == 3
     assert passages(world.coder, world, status="stale")["total"] == 0
 
 
@@ -82,7 +82,7 @@ def test_sorted_newest_article_first_then_by_position(world):
     code = make_code(world, "A")
     add_segment(world.coder, world, code["id"], 4, 8, article="fx_de_1")
     add_segment(world.coder, world, code["id"], 0, 3, article="fx_de_1")
-    add_segment(world.coder, world, code["id"], 0, 3, article="fx_lld_crlf")
+    add_segment(world.coder, world, code["id"], 0, 3, article="fx_it_1")
     articles = [(item["article_id"]) for item in passages(world.coder, world)["results"]]
     library = [item["id"] for item in world.coder.get(f"{world.url}/library").json()["results"] if item["id"] in articles]
     assert list(dict.fromkeys(articles)) == library
@@ -104,8 +104,8 @@ def test_pages(world):
 def test_context_is_cut_by_code_point_and_rejoins_the_text(world):
     code = make_code(world, "A")
     # Combining characters stay as they are in the corpus, and count one code point each.
-    text = full_text(world, "fx_lld_nfd")
-    add_segment(world.coder, world, code["id"], 2, 8, article="fx_lld_nfd")
+    text = full_text(world, "fx_de_nfd")
+    add_segment(world.coder, world, code["id"], 2, 8, article="fx_de_nfd")
     item = passages(world.coder, world)["results"][0]
     assert item["quote"] == text[2:8]
     assert item["before"] == text[:2]

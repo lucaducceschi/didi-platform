@@ -101,6 +101,11 @@ export function AddArticlesPage({ project }: { project: Project }) {
 
         <ErrorMessage error={error ?? search.error} />
         {notice && <p className="message" role="status">{notice}</p>}
+        {(data?.hidden_articles ?? 0) > 0 && (
+          <p className="message" role="note">
+            {(data?.hidden_articles ?? 0).toLocaleString()} {data?.hidden_articles === 1 ? 'article' : 'articles'} in unconfigured languages are hidden from this view.
+          </p>
+        )}
 
         {data && !search.error && (
           <div className="add-bar">

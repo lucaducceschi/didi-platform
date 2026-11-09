@@ -41,7 +41,7 @@ def test_selection_of_only_whitespace_is_refused(world, code, fixture_records):
     assert response.status_code == 422 and "spaces" in response.json()["detail"]
 
 
-@pytest.mark.parametrize("article, target", [("fx_lld_nfd", "val ladina"), ("fx_lld_crlf", "Le teater"), ("fx_markup", "Museumsbericht"), ("fx_markup", "*Sterne*")])
+@pytest.mark.parametrize("article, target", [("fx_de_nfd", "scho\u0308nes"), ("fx_it_crlf", "Il teatro"), ("fx_markup", "Museumsbericht"), ("fx_markup", "*Sterne*")])
 def test_positions_are_python_code_points(world, code, fixture_records, article, target):
     text = next(r for r in fixture_records if r["id"] == article)["full_text"]
     start = text.index(target)
@@ -108,8 +108,8 @@ def _read_csv(response):
 def test_exports_include_everything_with_exact_text(world, fixture_records):
     parent = make_code(world, "Autonomy", definition="About autonomy")
     child = make_code(world, "Finanzen", parent["id"])
-    text = next(r for r in fixture_records if r["id"] == "fx_lld_nfd")["full_text"]
-    add_segment(world.coder, world, child["id"], 0, 9, memo="Ein Memo, mit Komma", article="fx_lld_nfd")
+    text = next(r for r in fixture_records if r["id"] == "fx_de_nfd")["full_text"]
+    add_segment(world.coder, world, child["id"], 0, 9, memo="Ein Memo, mit Komma", article="fx_de_nfd")
 
     rows = _read_csv(world.lead.get(f"{world.url}/exports/annotations.csv"))
     assert len(rows) == 1
@@ -117,7 +117,7 @@ def test_exports_include_everything_with_exact_text(world, fixture_records):
     assert row["coder_username"] == "coder" and row["code_path"] == "Autonomy > Finanzen"
     assert row["quote"] == text[0:9] and row["memo"] == "Ein Memo, mit Komma"
     assert (row["start_pos"], row["end_pos"], row["status"]) == ("0", "9", "active")
-    assert row["language"] == "lld_gherd" and row["project"] == "Autonomy"
+    assert row["language"] == "de" and row["project"] == "Autonomy"
 
     codes = {code["name"]: code for code in _read_csv(world.lead.get(f"{world.url}/exports/codes.csv"))}
     assert codes["Finanzen"]["code_path"] == "Autonomy > Finanzen"

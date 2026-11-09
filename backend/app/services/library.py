@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
+from src.languages import get_active_language_codes
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS, DataService
 
 from backend.app.errors import conflict, not_found
@@ -173,8 +174,11 @@ def get_library(
 ) -> dict:
     article_ids = project_article_ids(db, project_id)
     metadata = corpus.get_article_metadata(article_ids)
-    language_counts = Counter(item["language"] for item in metadata.values())
-    source_counts = Counter(item["source"] for item in metadata.values())
+    active_codes = get_active_language_codes()
+
+    hidden_articles = sum(1 for item in metadata.values() if item and item["language"] not in active_codes)
+    language_counts = Counter(item["language"] for item in metadata.values() if item and item["language"] in active_codes)
+    source_counts = Counter(item["source"] for item in metadata.values() if item and (item["language"] in active_codes or item["language"] is None))
 
     mine = dict(
         db.execute(
@@ -186,6 +190,9 @@ def get_library(
 
     def matches(article_id: str) -> bool:
         item = metadata.get(article_id)
+        # Articles in unconfigured languages are hidden from library view
+        if item is not None and item["language"] not in active_codes:
+            return False
         # An article that left the corpus has no variety or source, so those filters hide it.
         if languages and (item is None or item["language"] not in languages):
             return False
@@ -238,6 +245,7 @@ def get_library(
         "page": page,
         "page_size": page_size,
         "results": results,
+        "hidden_articles": hidden_articles,
         "languages": [{"id": key, "label": LANGUAGE_LABELS.get(key, key), "count": count} for key, count in sorted(language_counts.items())],
         "sources": [{"id": key, "label": SOURCE_LABELS.get(key, key), "count": count} for key, count in sorted(source_counts.items())],
     }

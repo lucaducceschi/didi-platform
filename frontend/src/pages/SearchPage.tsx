@@ -99,6 +99,11 @@ export function SearchPage() {
         </form>
 
         {search.error && <p className="message message-error" role="alert">{search.error.message}</p>}
+        {addable.length > 0 && (search.data?.hidden_articles ?? 0) > 0 && (
+          <p className="message" role="note">
+            {(search.data?.hidden_articles ?? 0).toLocaleString()} {search.data?.hidden_articles === 1 ? 'article' : 'articles'} in unconfigured languages are hidden from this view.
+          </p>
+        )}
         {!search.error && (
           <p className="result-count" aria-live="polite">
             {search.loading ? 'Searching…' : `${total.toLocaleString()} ${total === 1 ? 'article' : 'articles'}`}

@@ -203,6 +203,7 @@ class LibraryResponse(BaseModel):
     results: List[LibraryArticle]
     languages: List[LibraryFacet]
     sources: List[LibraryFacet]
+    hidden_articles: int = 0
 
 
 class Passage(BaseModel):
@@ -246,6 +247,7 @@ class PassagesResponse(BaseModel):
     languages: List[LibraryFacet]
     sources: List[LibraryFacet]
     coders: List[PassageCoderCount]
+    hidden_passages: int = 0
 
 
 class ProjectSearchResult(BaseModel):
@@ -265,6 +267,7 @@ class ProjectSearchResponse(BaseModel):
     page: int
     page_size: int
     results: List[ProjectSearchResult]
+    hidden_articles: int = 0
 
 
 class ProgressUpdate(BaseModel):

@@ -32,7 +32,20 @@ def get_current_user(db: Db, didi_session: Annotated[Optional[str], Cookie()] = 
     return user
 
 
+def get_optional_user(db: Db, didi_session: Annotated[Optional[str], Cookie()] = None) -> Optional[User]:
+    if not didi_session:
+        return None
+    session = db.get(Session, hash_token(didi_session))
+    if session is None or session.expires_at <= datetime.now(timezone.utc):
+        return None
+    user = db.get(User, session.user_id)
+    if user is None or not user.active:
+        return None
+    return user
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
+OptionalUser = Annotated[Optional[User], Depends(get_optional_user)]
 
 
 def require_admin(user: CurrentUser) -> User:

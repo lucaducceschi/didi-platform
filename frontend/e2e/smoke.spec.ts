@@ -4,9 +4,6 @@ import { ADMIN, failOnThirdPartyRequests } from './helpers'
 const VARIETIES = [
   ['German', 'de'],
   ['Italian', 'it'],
-  ['Ladin Gherdëina', 'lld_gherd'],
-  ['Ladin Val Badia', 'lld_badia'],
-  ['Ladin Fascia', 'lld_fascia'],
 ] as const
 
 test.beforeEach(async ({ page, baseURL }) => {
@@ -18,7 +15,11 @@ for (const [label, variety] of VARIETIES) {
   test(`search and open a ${label} article with exact text`, async ({ page, request }) => {
     await page.goto('/search')
     const checkbox = page.getByRole('checkbox', { name: new RegExp(label) })
+    const searchResponse = page.waitForResponse(
+      (r) => r.url().includes('/api/articles') && r.url().includes(`language=${variety}`) && r.status() === 200,
+    )
     await checkbox.click()
+    await searchResponse
     await expect(checkbox).toBeChecked()
     await expect(page).toHaveURL(new RegExp(`language=${variety}`))
     const first = page.locator('.result-list h2 a').first()

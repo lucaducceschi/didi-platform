@@ -6,6 +6,7 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from src.languages import is_language_active
 from src.ui.data_service import DataService
 
 from backend.app.models import Annotation, Code
@@ -45,6 +46,9 @@ def write_annotations_csv(db: Session, corpus: DataService, project_id: uuid.UUI
     rows = []
     for a in annotations:
         article = articles.get(a.article_id, {})
+        # Omit annotations on unconfigured languages from exports
+        if article and not is_language_active(article.get("language", "")):
+            continue
         rows.append({
             "annotation_id": a.id,
             "project": project_name,

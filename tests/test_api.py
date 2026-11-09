@@ -74,10 +74,12 @@ def test_search_never_returns_highlight_html(client):
 
 
 def test_search_filters_by_language_and_source(client):
-    body = client.get("/api/articles/search", params={"language": ["lld_gherd", "lld_badia"]}).json()
-    assert {result["id"] for result in body["results"]} == {"fx_lld_nfd", "fx_lld_crlf"}
-    body = client.get("/api/articles/search", params={"source": "trail"}).json()
-    assert [result["id"] for result in body["results"]] == ["fx_lld_crlf"]
+    body = client.get("/api/articles/search", params={"language": ["de"]}).json()
+    assert {result["id"] for result in body["results"]} == {"fx_de_1", "fx_de_nfd", "fx_markup"}
+    body = client.get("/api/articles/search", params={"language": ["it"]}).json()
+    assert {result["id"] for result in body["results"]} == {"fx_it_1", "fx_it_crlf"}
+    body = client.get("/api/articles/search", params={"source": "salto"}).json()
+    assert {result["id"] for result in body["results"]} == {"fx_de_1", "fx_it_1", "fx_de_nfd", "fx_it_crlf", "fx_markup"}
 
 
 def test_search_paginates(client):
@@ -98,7 +100,7 @@ def test_page_size_is_limited(client):
     assert client.get("/api/articles/search", params={"page_size": 1000}).status_code == 422
 
 
-@pytest.mark.parametrize("article_id", ["fx_de_1", "fx_lld_nfd", "fx_lld_crlf", "fx_markup"])
+@pytest.mark.parametrize("article_id", ["fx_de_1", "fx_it_1", "fx_de_nfd", "fx_it_crlf", "fx_markup"])
 def test_article_text_is_exact(client, fixture_records, article_id):
     expected = next(record for record in fixture_records if record["id"] == article_id)["full_text"]
     assert client.get(f"/api/articles/{article_id}").json()["full_text"] == expected
@@ -111,7 +113,9 @@ def test_missing_article_is_404(client):
 def test_summary_has_labelled_facets(client):
     body = client.get("/api/corpus/summary").json()
     assert body["total_articles"] == 5
-    assert {"id": "de", "label": "German (de)", "count": 2} in body["languages"]
+    assert {"id": "de", "label": "German (de)", "count": 3} in body["languages"]
+    assert {"id": "it", "label": "Italian (it)", "count": 2} in body["languages"]
+    assert len(body["languages"]) == 2
 
 
 def test_corpus_connection_is_read_only(fixture_corpus):

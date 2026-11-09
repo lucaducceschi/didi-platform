@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS, DataService
 
 from backend.app.corpus import get_corpus, snippet_parts
-from backend.app.deps import CurrentUser, Db
+from backend.app.deps import CurrentUser, Db, OptionalUser
 from backend.app.models import Project, ProjectArticle, ProjectMember
 from backend.app.schemas import ArticleDetail, ArticleMetrics, ArticleSummary, CorpusSummary, Facet, SearchResponse
 from backend.app.schemas_work import ArticleProject
@@ -19,7 +19,7 @@ Corpus = Annotated[DataService, Depends(get_corpus)]
 
 @router.get("/corpus/summary", response_model=CorpusSummary)
 def corpus_summary(corpus: Corpus) -> CorpusSummary:
-    summary = corpus.get_corpus_summary()
+    summary = corpus.get_corpus_summary(active_only=True)
     return CorpusSummary(
         total_articles=summary["total_articles"],
         total_words=summary["total_words"],
@@ -39,6 +39,8 @@ def corpus_summary(corpus: Corpus) -> CorpusSummary:
 @router.get("/articles/search", response_model=SearchResponse)
 def search_articles(
     corpus: Corpus,
+    db: Db,
+    user: OptionalUser = None,
     q: str = "",
     source: Annotated[Optional[List[str]], Query()] = None,
     language: Annotated[Optional[List[str]], Query()] = None,
@@ -51,9 +53,22 @@ def search_articles(
             sources=source,
             languages=language,
             use_hybrid=False,
+            active_only=True,
             limit=page_size,
             offset=(page - 1) * page_size,
         )
+        can_see_hidden = False
+        if user:
+            if user.is_admin:
+                can_see_hidden = True
+            else:
+                is_lead = db.scalar(
+                    select(ProjectMember.project_id).where(
+                        ProjectMember.user_id == user.id, ProjectMember.role == "lead"
+                    ).limit(1)
+                )
+                can_see_hidden = is_lead is not None
+        hidden_articles = (corpus.count_unconfigured_matches(query=q, sources=source) if q.strip() else 0) if can_see_hidden else 0
     except sqlite3.OperationalError:
         # FTS5 reports bad user syntax, such as an unbalanced quote, as an OperationalError.
         # The corpus is read-only, so with a query present this is almost always the search text.
@@ -65,6 +80,7 @@ def search_articles(
         total=total,
         page=page,
         page_size=page_size,
+        hidden_articles=hidden_articles,
         results=[
             ArticleSummary(
                 **{

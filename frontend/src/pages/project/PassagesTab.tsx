@@ -146,8 +146,10 @@ export function PassagesTab({ project }: { project: Project }) {
         </div>
 
         <ErrorMessage error={error ?? codes.error} />
-        {language.startsWith('lld') && (
-          <p className="message" role="note">No Ladin speaker has reviewed the Ladin variety labels yet, so check them before comparing varieties.</p>
+        {project.can_manage && (data?.hidden_passages ?? 0) > 0 && (
+          <p className="message" role="note">
+            {(data?.hidden_passages ?? 0).toLocaleString()} {data?.hidden_passages === 1 ? 'passage' : 'passages'} in unconfigured languages are hidden from this view.
+          </p>
         )}
         {data && data.project_total > 0 && (
           <div className="row passage-summary">

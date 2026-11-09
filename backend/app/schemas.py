@@ -30,6 +30,7 @@ class SearchResponse(BaseModel):
     page: int
     page_size: int
     results: List[ArticleSummary]
+    hidden_articles: int = 0
 
 
 class ArticleMetrics(BaseModel):

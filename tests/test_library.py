@@ -38,8 +38,8 @@ def test_library_shows_each_coders_status_and_counts(world):
 def test_library_filters_and_reports_how_many_are_hidden(world):
     set_progress(world, "coder", "fx_it_1", "done")
     url = f"{world.url}/library"
-    assert {a["id"] for a in world.coder.get(url, params={"language": "it"}).json()["results"]} == {"fx_it_1"}
-    assert {a["id"] for a in world.coder.get(url, params={"source": "trail"}).json()["results"]} == {"fx_lld_crlf"}
+    assert {a["id"] for a in world.coder.get(url, params={"language": "it"}).json()["results"]} == {"fx_it_1", "fx_it_crlf"}
+    assert {a["id"] for a in world.coder.get(url, params={"source": "salto"}).json()["results"]} == {"fx_de_1", "fx_it_1", "fx_de_nfd", "fx_it_crlf", "fx_markup"}
     done = world.coder.get(url, params={"status": "done"}).json()
     assert [a["id"] for a in done["results"]] == ["fx_it_1"] and done["total"] == 1 and done["project_total"] == 5
     # Another coder's progress doesn't count as mine.
@@ -51,8 +51,8 @@ def test_library_paginates_newest_first_with_project_wide_facets(world):
     first = world.coder.get(f"{world.url}/library", params={"page_size": 2}).json()
     second = world.coder.get(f"{world.url}/library", params={"page_size": 2, "page": 2}).json()
     assert [a["id"] for a in first["results"]] == ["fx_de_1", "fx_it_1"]
-    assert [a["id"] for a in second["results"]] == ["fx_lld_nfd", "fx_lld_crlf"]
-    assert {f["id"]: f["count"] for f in first["languages"]} == {"de": 2, "it": 1, "lld_gherd": 1, "lld_badia": 1}
+    assert [a["id"] for a in second["results"]] == ["fx_de_nfd", "fx_it_crlf"]
+    assert {f["id"]: f["count"] for f in first["languages"]} == {"de": 3, "it": 2}
 
 
 def test_library_is_closed_to_other_projects(world):
@@ -101,8 +101,8 @@ def test_search_marks_articles_already_in_the_project(world):
     other = f"/api/projects/{world.ids['other_project']}"
     world.outsider.post(f"{other}/articles", json={"article_ids": ["fx_de_1"]})
     body = world.outsider.get(f"{other}/article-search", params={"language": "de"}).json()
-    assert body["total"] == 2 and body["in_project_total"] == 1
-    assert {a["id"]: a["in_project"] for a in body["results"]} == {"fx_de_1": True, "fx_markup": False}
+    assert body["total"] == 3 and body["in_project_total"] == 1
+    assert {a["id"]: a["in_project"] for a in body["results"]} == {"fx_de_1": True, "fx_de_nfd": False, "fx_markup": False}
     assert world.lead.get(f"{other}/article-search").status_code == 404
 
 
@@ -110,14 +110,14 @@ def test_adding_all_matches_of_a_search(world):
     other = f"/api/projects/{world.ids['other_project']}"
     world.outsider.post(f"{other}/articles", json={"article_ids": ["fx_de_1"]})
     response = world.outsider.post(f"{other}/articles/from-search", json={"language": ["de"]})
-    assert response.json() == {"added": 1, "already_present": 1}
+    assert response.json() == {"added": 2, "already_present": 1}
     again = world.outsider.post(f"{other}/articles/from-search", json={"language": ["de"]})
-    assert again.json() == {"added": 0, "already_present": 2}
-    assert world.outsider.get(f"{other}/library").json()["project_total"] == 2
-    # A search adds the same articles it shows, including the thesaurus match for Ladin "scola".
-    shown = world.outsider.get(f"{other}/article-search", params={"q": "scuola"}).json()["total"]
-    by_query = world.outsider.post(f"{other}/articles/from-search", json={"q": "scuola"}).json()
-    assert by_query["added"] + by_query["already_present"] == shown == 2
+    assert again.json() == {"added": 0, "already_present": 3}
+    assert world.outsider.get(f"{other}/library").json()["project_total"] == 3
+    # A search adds the same articles it shows, matching cross-lingual concepts across active languages.
+    shown = world.outsider.get(f"{other}/article-search", params={"q": "Autonomie"}).json()["total"]
+    by_query = world.outsider.post(f"{other}/articles/from-search", json={"q": "Autonomie"}).json()
+    assert by_query["added"] + by_query["already_present"] == shown == 3
 
 
 def test_adding_from_search_needs_a_lead_and_valid_syntax(world):

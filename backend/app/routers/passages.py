@@ -34,7 +34,10 @@ def list_passages(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ):
-    return service.find_passages(db, get_corpus(), access.project.id, filters, page, page_size)
+    res = service.find_passages(db, get_corpus(), access.project.id, filters, page, page_size)
+    if not (access.is_lead or access.user.is_admin):
+        res["hidden_passages"] = 0
+    return res
 
 
 @router.get("/passages.csv")

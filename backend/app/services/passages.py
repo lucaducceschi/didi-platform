@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from src.languages import get_active_language_codes
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS, DataService
 
 from backend.app.errors import not_found
@@ -65,6 +66,9 @@ def _match(db: Session, corpus: DataService, project_id: uuid.UUID, filters: Pas
     codes = {code.id: code for code in db.scalars(select(Code).where(Code.project_id == project_id))}
     wanted = _wanted_codes(codes, filters)
     metadata = corpus.get_article_metadata([row.article_id for row in rows])
+    active_codes = get_active_language_codes()
+
+    hidden_passages = sum(1 for row in rows if (item := metadata.get(row.article_id)) and item["language"] not in active_codes)
 
     tests = {
         "code": lambda row, item: wanted is None or row.code_id in wanted,
@@ -76,12 +80,15 @@ def _match(db: Session, corpus: DataService, project_id: uuid.UUID, filters: Pas
     matched, direct, languages, sources, coders = [], Counter(), Counter(), Counter(), Counter()
     for row in rows:
         item = metadata.get(row.article_id)
+        # Passages on articles with unconfigured languages are hidden
+        if item is not None and item["language"] not in active_codes:
+            continue
         failed = [name for name, test in tests.items() if not test(row, item)]
         if not failed:
             matched.append(row)
         if not set(failed) - {"code"}:
             direct[row.code_id] += 1
-        if item is not None and not set(failed) - {"language"}:
+        if item is not None and item["language"] in active_codes and not set(failed) - {"language"}:
             languages[item["language"]] += 1
         if item is not None and not set(failed) - {"source"}:
             sources[item["source"]] += 1
@@ -93,6 +100,7 @@ def _match(db: Session, corpus: DataService, project_id: uuid.UUID, filters: Pas
     matched.sort(key=lambda row: metadata.get(row.article_id, {}).get("publish_date", ""), reverse=True)
     return {
         "project_total": len(rows),
+        "hidden_passages": hidden_passages,
         "ids": [row.id for row in matched],
         "codes": codes,
         "metadata": metadata,
@@ -161,6 +169,7 @@ def find_passages(
     users = {user.id: user for user in db.scalars(select(User).where(User.id.in_(found["coders"])))} if found["coders"] else {}
     return {
         "project_total": found["project_total"],
+        "hidden_passages": found["hidden_passages"],
         "total": len(found["ids"]),
         "page": page,
         "page_size": page_size,

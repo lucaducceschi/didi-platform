@@ -23,6 +23,7 @@ export interface SearchResponse {
   page: number
   page_size: number
   results: ArticleSummary[]
+  hidden_articles?: number
 }
 
 export interface ArticleDetail {
@@ -263,6 +264,7 @@ export interface LibraryResponse {
   results: LibraryArticle[]
   languages: Facet[]
   sources: Facet[]
+  hidden_articles?: number
 }
 
 export interface LibraryFilters {
@@ -301,6 +303,7 @@ export interface ProjectSearchResponse {
   page: number
   page_size: number
   results: ProjectSearchResult[]
+  hidden_articles?: number
 }
 
 export const searchForProject = (projectId: string, filters: SearchFilters, signal?: AbortSignal) =>
@@ -361,6 +364,7 @@ export interface PassagesResponse {
   languages: { id: string; label: string; count: number }[]
   sources: { id: string; label: string; count: number }[]
   coders: { user: UserBrief; count: number }[]
+  hidden_passages?: number
 }
 
 export const getPassages = (projectId: string, query: URLSearchParams, signal?: AbortSignal) =>
