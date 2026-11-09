@@ -23,6 +23,7 @@ from src.nlp.hybrid_search import HybridSearchEngine
 from src.ui.qdpx import build_qdpx
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "processed" / "didi_corpus.db"
+DEFAULT_WORDS_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "processed" / "didi_words.db"
 
 EMOTION_COLS = [
     "anger_density", "anticipation_density", "disgust_density", "fear_density",
@@ -120,8 +121,15 @@ TRILINGUAL_THESAURUS: Dict[str, str] = {
 class DataService:
     """Access to the corpus in didi_corpus.db. Annotations live in the workbench's PostgreSQL database."""
 
-    def __init__(self, db_path: Optional[Path] = None, read_only: bool = False, enable_hybrid: bool = True):
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        words_db_path: Optional[Path] = None,
+        read_only: bool = False,
+        enable_hybrid: bool = True
+    ):
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        self.words_db_path = Path(words_db_path) if words_db_path else DEFAULT_WORDS_DB_PATH
         self.read_only = read_only
         if not self.db_path.exists():
             raise FileNotFoundError(f"Corpus database not found at {self.db_path}")
@@ -686,6 +694,16 @@ class DataService:
             if d.get("metadata_json"):
                 d["metadata"] = json.loads(d["metadata_json"])
             return d
+
+    def get_article_words(self, article_id: str) -> List[Dict[str, Any]]:
+        """Retrieve word layer tokens for an article, ordered by token_idx."""
+        from src.storage.word_layer import get_article_words as _get_words
+        return _get_words(self.words_db_path, article_id)
+
+    def get_passage_words(self, article_id: str, start_char: int, end_char: int) -> List[Dict[str, Any]]:
+        """Retrieve word layer tokens covering or intersecting a text span [start_char:end_char]."""
+        from src.storage.word_layer import get_passage_words as _get_passage
+        return _get_passage(self.words_db_path, article_id, start_char, end_char)
 
     def get_aggregated_radar_data(
         self,

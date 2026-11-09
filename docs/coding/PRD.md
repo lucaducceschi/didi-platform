@@ -1,6 +1,6 @@
 # PRD: DIDI Annotation Workbench (Phase 3.1)
 
-**Status:** Direction agreed, not started. Updated 2026-11-06.
+**Status:** Tasks 0–4 built. Updated 2026-11-07. Since 2026-11-07 the platform covers German and Italian only, and Ladin is deferred: see [`../PRD.md`](../PRD.md), Section 2. Ladin mentions below record how Tasks 0–4 were built and tested.
 
 **Goal:** Turn DIDI from a Streamlit demo into a web app where different researchers run their own annotation work on the shared corpus, as researchers do in the Speech Workbench, without needing a MAXQDA licence and with all data exportable.
 
@@ -8,7 +8,7 @@
 
 ## 1. How researchers work
 
-Up to 10 researchers use one app and one corpus, but they don't all do the same job. One may study autonomy framing in German and Italian with one codebook, while another codes language rights in Ladin with a different one.
+Up to 10 researchers use one app and one corpus, but they don't all do the same job. One may study autonomy framing in German and Italian with one codebook, while another codes language rights with a different one.
 
 | Speech Workbench pattern | What it means in DIDI |
 |---|---|
@@ -218,7 +218,7 @@ Don't write production Dockerfiles, CI or infrastructure code in this phase.
 | 3. Select and code | [`prompts/3_select_and_code.md`](prompts/3_select_and_code.md) | Task 2 | 1 week |
 | 4. Retrieval and article management | [`prompts/4_retrieval.md`](prompts/4_retrieval.md) | Task 3 | 1 week |
 
-Estimates are judgments for one developer, not measurements. Researchers were meant to try the result after Task 3. No Ladin researcher is available right now, so on 2026-11-07 Luca chose to keep building. The trial still has to happen before anyone relies on results by Ladin variety, because no Ladin speaker has reviewed those labels.
+Estimates are judgments for one developer, not measurements. Researchers were meant to try the result after Task 3. On 2026-11-07 Luca chose to keep building before a trial, because no researcher is available right now.
 
 ## 13. Acceptance criteria for the phase
 
@@ -234,14 +234,11 @@ Estimates are judgments for one developer, not measurements. Researchers were me
 
 ## 14. Later phases
 
-The order can change once researchers have tried the app. Retrieval moved into Task 4.
+The platform roadmap now lives in [`../PRD.md`](../PRD.md), Section 7, which covers coding and quantitative work together. Retrieval was built as Task 4. These coding features remain open there:
 
-- **Hosting:** where it runs, login method and backups. Before hosting, check whether full text may be served to up to 10 users, or sent to a hosted model.
-- **Port the analysis views**, then retire Streamlit (about 2–3 weeks, estimated).
+- **Agreement and gold standard:** double-coding, a blind mode, an agreement measure, adjudication and an approved consensus version, as in the Workbench's gold stage.
 - **Assignments:** leads assign articles to coders.
-- **Agreement and gold standard:** double-coding, Krippendorff's alpha, adjudication and an approved consensus version, as in the Workbench's gold stage.
 - **Exchange:** port the QDPX export, add coded segments and import, and confirm the end-position convention by test against a REFI-QDA tool.
-- **AI assistance:** optional and behind the HTTP client in Section 11.
 
 ## 15. Open questions
 

@@ -10,6 +10,8 @@
 ## 1. Project Overview
 The **DIDI Platform** is a full-stack computational research workbench designed to bridge **qualitative media discourse analysis** (the standard social science method) with **quantitative NLP metrics** (lexical diversity, discrete emotion mining, sentiment valence) and **Agentic RAG**.
 
+> **Scope (2026-11-07):** the platform is now developed for German and Italian only; Ladin is deferred until a new Ladin NLP pipeline is ready. The Ladin articles below stay in the corpus and in the Streamlit demo. See [`docs/PRD.md`](docs/PRD.md).
+
 It investigates how political discourse, minority rights, language policy, and regional autonomy in South Tyrol and the Dolomitic Ladin valleys are framed across three linguistic communities and five varieties:
 1. **German (`de`):** *Die Neue Südtiroler Tageszeitung* (`tageszeitung.it`) & *Salto.bz* (`salto.bz/de`)
 2. **Italian (`it`):** *Salto.bz* (`salto.bz/it`)

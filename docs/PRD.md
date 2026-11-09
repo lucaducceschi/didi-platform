@@ -1,204 +1,152 @@
-# Product Requirements Document (PRD)
-## DIDI Platform: Mixed-Methods Media Analysis & Research Workbench
+# PRD: DIDI Platform
 
-**Project:** *DIDI — Gruppi diversi, prospettive diverse? Come l'inquadramento mediatico influenza le percezioni delle comunità di maggioranza e di minoranza*  
-**Affiliation:** Eurac Research (Center for Autonomy Experience, Institute for Minority Rights, Institute for Applied Linguistics) & University of Innsbruck  
-**Lead AI & Architecture:** Dr. Luca Ducceschi, Ph.D.  
-**Document Version:** 1.0.0  
-**Target Delivery (Local Working Demo):** 7 Calendar Days  
+**Project:** *DIDI — Gruppi diversi, prospettive diverse? Come l'inquadramento mediatico influenza le percezioni delle comunità di maggioranza e di minoranza*
+**Affiliation:** Eurac Research (Center for Autonomy Experience, Institute for Minority Rights, Institute for Applied Linguistics) and University of Innsbruck
+**Lead:** Dr. Luca Ducceschi
+**Version:** 2.0, 2026-11-07. It replaces the 1-week demo PRD (version 1.0), which is in git history.
 
----
+## 1. Purpose
 
-## 1. Executive Summary & Vision
+DIDI studies how South Tyrolean media frame autonomy, minority rights and political events for different language communities, and how that framing shapes perceptions. The platform supports this with mixed methods: researchers read and code texts closely, measure framing across many texts, and move between the two.
 
-### 1.1 Problem Statement
-In multilingual and multi-ethnic regions such as South Tyrol (Alto Adige / Südtirol), public discourse surrounding territorial autonomy, minority language rights, tourism, and public finance is fragmented across linguistic lines. Social scientists studying these dynamics face a methodology gap:
-- **Qualitative discourse analysis** provides deep contextual understanding but cannot scale across multi-decade corpora encompassing tens of thousands of articles.
-- **Pure quantitative NLP** produces aggregate statistics that abstract away crucial qualitative context, textual evidence, and dialectal nuances (e.g., distinguishing Val Badia from Gherdëina and Fascia).
+The platform's value is the **link** between the two halves:
+- Every number on screen leads back to the texts behind it.
+- Coded passages can be measured and compared like any other subset of the corpus.
+- Measures help choose what to read and code.
 
-### 1.2 Product Vision
-The **DIDI Workbench** is a unified computational research platform designed specifically for mixed-methods social scientists. It provides an interactive web interface where researchers can simultaneously execute:
-1. **Qualitative Inquiry:** Full-text semantic search (FTS5) to discover relevant passages, quote snippets, and contextualized arguments.
-2. **Quantitative Framing:** Real-time cross-linguistic profiling along discrete emotional axes (Plutchik's 8 basic emotions via NRC EmoLex) and moral foundations (Moral Foundations Theory: Care, Fairness, Loyalty, Authority, Sanctity) across German, Italian, and Ladin.
-3. **Comparative Visualization:** Direct side-by-side triangulation revealing how identical societal topics (e.g., *Autonomie / Autonomia*, *Schule / Scola*, *Tourismus / Turism*) are framed differently across majority and minority linguistic communities.
+It replaces MAXQDA for the project's coding (see [`coding/PRD.md`](coding/PRD.md)), but it is meant to be more than a coding tool.
 
----
+## 2. Scope decisions
 
-## 2. Target User Personas
+**2026-11-07: German and Italian only, for now.** The platform is built for German (`de`) and Italian (`it`). Ladin is deferred until Luca's new Ladin NLP pipeline is ready (see *Ladin: returning later* in Section 7).
+- Ladin articles stay in the corpus database and in `data/raw/`. Nothing is deleted.
+- The new app shows only the languages it is configured for (Phase 1).
+- New features are designed and tested on German and Italian. No Ladin-specific work until the Ladin phase starts.
+- **Languages must stay pluggable.** Everything language-specific sits behind one per-language definition, so adding Ladin later means adding a language, not changing the app. This covers labels, the search synonym list, dictionaries, tokenization and any models.
+- The Streamlit demo is left as it is, Ladin included, until its views are ported.
 
-| Persona | Role | Primary Needs | Critical Success Metric |
-| :--- | :--- | :--- | :--- |
-| **Dr. Elena (Social Scientist / Qualitative Analyst)** | Postdoc in Minority Rights & Regional Politics | Needs to search topics across German, Italian, and Ladin, view in-context text snippets, filter by emotional tone, and export quotes for journal articles. | Ability to find and inspect relevant multilingual text excerpts in < 3 seconds. |
-| **Matteo (Computational Linguist / DH Specialist)** | Applied Linguistics Researcher | Needs to compare aggregate metrics (Type-Token Ratio, Mean Sentence Length, Moral Foundation densities) across dialects and validate cross-lingual dictionary parity. | Transparent access to underlying metrics, lemma counts, and CSV/JSONL export. |
-| **Prof. Karl (Institute Director / Grant Evaluator)** | Principal Investigator & Stakeholder | Needs an intuitive, high-level visual dashboard that demonstrates research impact, interactive radar comparisons, and temporal trends for presentations and reports. | Self-explanatory, interactive visual story runnable locally with zero setup friction. |
+**Earlier decisions that still stand:**
+- React and Python app with PostgreSQL, developed locally. Hosting undecided (possibly Azure or Foundry), so no cloud-specific code.
+- Up to 10 researchers, each in their own projects with their own codebooks.
+- Exact text: `full_text` is never modified, because coded positions refer to it.
+- Copyright: full text, databases, raw data, dictionary assets and exports never reach the public `origin` remote.
 
----
+## 3. Users
 
-## 3. Existing Technical Assets & Foundation
+| User | Needs |
+|---|---|
+| Qualitative researcher | Find relevant articles, code passages, compare coded material across communities, export quotes with citations |
+| Computational or linguistic researcher | Transparent measures, the words behind each score, validation against human coding, exportable data |
+| Principal investigator | Clear comparisons and trends for reports and presentations, traceable to texts |
 
-The platform builds directly upon pre-existing, tested computational assets:
-- **Corpus Database ([`data/processed/didi_corpus.db`](data/processed/didi_corpus.db)):** 12,220 articles, 2,567,181 tokens (2017–2026) across 5 linguistic varieties (`lld_gherd`, `lld_badia`, `lld_fascia`, `de`, `it`) with active SQLite FTS5 search.
-- **Quantitative Metrics Pipeline:** Pre-computed `article_nlp_metrics` table with lexical diversity (TTR, Root TTR, Herdan's $C$, Hapax ratio), NRC discrete emotions, and 10-pole Moral Foundations Theory densities ($[0, \infty)$ per 1,000 words, plus net moral valence $[-1.0, +1.0]$).
-- **Stanza MFD 2.0 Lexicon Engine:** Curated and Stanza-disambiguated dictionaries for German, Italian, and triangulated Ladin (DLS + Eurac BISTRO + 17k Forni inflections).
-- **Dual-Remote Architecture:** Open-source public code & copyright-safe metadata on GitHub (`origin`), full-text data and dictionary assets on institutional GitLab (`gitlab`).
+## 4. Where things stand
 
-### 3.1 Regional Provenance & Sourcing Strategy for German & Italian
+### Corpus (German and Italian)
 
-To ensure rigorous mixed-methods validity, text collected for German and Italian must represent authentic **South Tyrolean regional discourse** rather than syndicated national Italian (ANSA, Adnkronos) or German/Austrian (dpa, APA) wire news republished on local portals.
+| Source | Language | Articles | Period | Words |
+|---|---|---:|---|---:|
+| Salto.bz | German | 447 | 2017-10 to 2025-05, mostly 2024–2025 | 192,106 |
+| Die Neue Südtiroler Tageszeitung | German | 79,303 | 2015-01 to 2025-08 | 25,113,908 |
+| Salto.bz | Italian | 280 | 2021-03 to 2025-05 | 161,532 |
+| **Total** | | **80,030** | | **25,467,546** |
 
-#### Sourcing Tiers & Phasing
-1. **Tier 1: Active Journalistic Media (Immediate Core):**
-   - **German (`de`):** *Salto.bz* (`salto.bz/de`), *Die Neue Südtiroler Tageszeitung* (`tageszeitung.it`), *Barfuss.it*, *ff – Das Südtiroler Wochenmagazin* (`ff-online.com`).
-   - **Italian (`it`):** *Salto.bz* (`salto.bz/it`), *RaiNews TGR Bolzano* (Italian desk via hidden JSON endpoint), *QuiMedia / QuiBolzano*.
-   - **Ladin (`lld`):** *La Usc di Ladins* (`lausc.it`), *RaiNews TGR TRAIL* (`rainews.it/tgr/trail`).
-2. **Tier 2: Official Institutional Press (High-Assurance Parallel Anchor):**
-   - **Landespresseamt / Ufficio Stampa della Provincia Autonoma di Bolzano** (`news.provinz.bz.it` / `news.provincia.bz.it`): Official press releases published bilingually (DE and IT) on identical dates.
-   - **Mandatory Metadata Tag:** Ingested articles must carry `source_type: "official_press"` (distinct from `"journalism"`) so researchers can compare institutional communication against independent journalistic framing.
-3. **Tier 3: Paywalled Journalistic Resources (Stashed for Future Integration):**
-   - *Dolomiten* (`stol.it`, Athesia Group) and *Alto Adige* (`altoadige.it`). Connectors and schema abstractions are designed and staged; active crawling is paused until institutional access credentials/dumps are secured.
-4. **Tier 4: Deferred for Later Phases:**
-   - *Municipal Gazettes (Gemeindeblätter / Bollettini Comunali):* Excluded for now due to high OCR/PDF formatting noise; reserved for future micro-level civic studies.
-   - *Local Audio & Podcasts:* Spoken German/Italian broadcasts (Rai Südtirol, Radio Tandem) reserved for Phase 2 transcription via Whisper large-v3.
+The full corpus database holds 91,392 articles and 27,629,163 words (including the 11,362 deferred Ladin articles). Stanza token-level Word Layer annotations for 79,293 Tageszeitung articles (30,275,813 tokens) are stored in `data/processed/didi_words.db`.
 
-#### High-Assurance Provenance Engine (Anti-Syndication Filters)
-Every candidate article must pass three automated provenance gates before entering the corpus:
-1. **Wire Byline Stripping:** Automatically detect and flag/reject articles credited to national press agencies (`ANSA`, `Adnkronos`, `APA`, `dpa`, `Italpress`, `Reuters`). Accept only local editorial bylines (`red`, named local staff, community contributors).
-2. **Category / Rubric Isolation:** Restrict crawling strictly to regional rubrics (`/chronik/suedtirol`, `/politik/landespolitik`, `/lokal/bozen`, `/cronaca/bolzano`), discarding national and global sections (`/welt`, `/italien`, `/sport`).
-3. **Local Toponym & Entity Gazetteer Scoring:** Calculate a `local_provenance_score` ($[0.0, 1.0]$) measuring token density of South Tyrolean toponyms (from `comuni.csv` and `toponomastica.db`: *Bozen/Bolzano, Meran/Merano, Brixen/Bressanone, Bruneck/Brunico, Schlanders/Silandro, Pusteria, Isarco, Salurn/Salorno*) and political/institutional anchors (*Landeshauptmann, Kompatscher, Giunta Provinciale, Autonomia, Proporz, SVP, Team K*).
+### Stanza-annotated articles from the KST project (checked 2026-11-07)
 
-### 3.2 Reproducible Manifest-Driven Harvesting Engine
+Luca's KST project annotated two German sources with Stanza (`tokenize,lemma,pos,ner,depparse`) on the Eurac HPC cluster. Copies are on Luca's Mac in `~/Data/KST/cluster/`, and they never go into a git repository.
 
-To ensure any scraping or harvesting run is 100% reproducible over time without fragile ad-hoc scripts:
-1. **Declarative Source Manifests (`config/sources/*.yaml`):**
-   - Each outlet is defined by a version-controlled YAML manifest declaring seed endpoints, sitemap URLs, target URL regexes, DOM selectors, rate limits, and provenance exclusion rules.
-2. **Raw Immutable Snapshots & SHA-256 Checksums:**
-   - Raw HTTP responses or structured JSON payloads are preserved immutably with SHA-256 checksums and ISO-8601 timestamps (`scraped_at_utc`).
-   - Deduplication by canonical URL and content hash guarantees idempotency: re-running a crawler only ingests delta updates without altering historical data.
-3. **Extended Provenance Schema:**
-   The canonical `DIDIArticle` schema records:
-   - `source_type`: `Literal["journalism", "official_press", "parliamentary_debate"]`
-   - `local_provenance_score`: `float` ($0.0$ to $1.0$)
-   - `wire_agency_detected`: `Optional[str]` (e.g. `"ANSA"` or `None`)
-   - `geographic_scope`: `str` (e.g. `"Südtirol/Alto Adige"`, `"Bozen/Bolzano"`, `"Val Badia"`)
-   - `collector_version`: `str` (version tag of scraper manifest)
+| Source | Articles | Period | Matches DIDI's text? |
+|---|---:|---|---|
+| Die Neue Südtiroler Tageszeitung (DE) | 79,504 | 2015–2025 | Yes: 129 of DIDI's 131 identical, 1 differs in spacing only |
+| Salto.bz (DE) | 33,273 | 2013–2026 | No: none of 393 overlapping articles match; the cluster text lacks the lead paragraph and has line breaks in mid-sentence |
 
----
+- Each word has a lemma, parts of speech, morphological features, a dependency and a named-entity tag, and character positions that count from the start of `title + "\n" + text`.
+- There is no Italian. DIDI's 280 Italian Salto articles have no Stanza annotations yet.
+- Some Tageszeitung text has words glued together (`enttäuschtauf`), probably from the original scrape. DIDI's 131 articles have the same flaw.
 
-## 4. Proposed Demo Architecture: Streamlit + Plotly
+Known gaps:
+- **Official press:** a scraper exists (`scripts/scrape_provinz_press.py`), but only 10 releases were fetched, and none are in the database.
+- **Provenance checks** (Section 6): the fields exist in `src/models/schema.py`, but nothing computes them. Every article defaults to a provenance score of 1.0, and none of the 858 stores one.
+- **Source manifests:** `config/sources/` was planned but never built. Each scraper is its own script.
 
-For a **1-week working demo**, **Streamlit** combined with **Plotly** is the optimal choice:
-- **Zero Frontend Build Chain:** Pure Python codebase — no Node.js, Webpack, or React compilation hurdles.
-- **Direct Database Connectivity:** Direct native read-only access to SQLite (`didi_corpus.db`) via `sqlite3` and Python `@st.cache_data`.
-- **Publication-Ready Visualizations:** Interactive Plotly radar charts, time-series timelines, and box plots with hover tooltips and zoom capabilities.
-- **Portability:** Runs locally with `streamlit run app.py` on macOS/Linux and packages cleanly into a Docker container or Azure/HPC deployment.
+### Software
 
----
+| Part | State |
+|---|---|
+| Annotation workbench (React, FastAPI, PostgreSQL) | Built: accounts, projects, codebooks, library, reader, coding, presence, passages across articles, article removal, CSV export. Used by Luca; no researcher trial yet. |
+| Streamlit demo | Explorer, framing radar, timelines, focus events with Dunning G² keyness and a moral divergence index, article inspector, CSV exports |
+| Measures (`src/nlp/`) | Computed in advance per article: sentiment and NRC emotions (Plutchik), Moral Foundations (MFD 2.0, lemmatized with Stanza), lexical diversity |
+| Search | SQLite FTS5 keyword search with a synonym list; sentence-vector search in Streamlit only |
+| MAXQDA exchange | QDPX export of articles and metadata; never tested in MAXQDA |
 
-## 5. Functional Specifications: The 4 Core Views
+## 5. Principles
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        DIDI RESEARCH WORKBENCH                         │
-│  [Sidebar: Topic Search | Sources | Languages | Sentiment & Moral Filters] │
-├────────────────────────────────────────────────────────────────────────┤
-│ [Tab 1: Corpus Explorer]  [Tab 2: Framing Radar]  [Tab 3: Temporal]   │
-│                                                                        │
-│  • Side-by-side linguistic comparison (DE vs IT vs LLD)                │
-│  • Quantitative framing radar (Care, Fairness, Loyalty, Auth, Sanct)   │
-│  • In-context keyword snippets with emotion & moral score badges       │
-│  • Article full-text deep-dive with annotated token inspection         │
-└────────────────────────────────────────────────────────────────────────┘
-```
+1. **Evidence first:** every chart, count or score can be opened to show the passages or words behind it.
+2. **Codes and measures meet:** any measure can be computed for coded passages, a code or a project, not only for the whole corpus.
+3. **Validate before comparing:** a dictionary measure isn't used to compare communities until it has been checked against human judgement in that language.
+4. **Languages are configuration:** see Section 2.
+5. **Open data:** everything stored can be exported, and the schema is documented.
+6. **Runs offline:** no third-party calls from the browser. Any optional model service sits behind one small HTTP client, and the app works without it.
 
-### View 1: Cross-Lingual Corpus Explorer & Qualitative Search
-- **Faceted Filters (Sidebar):**
-  - Keyword / Topic Search (FTS5 full-text query with boolean operators: e.g. `Autonomie OR Autonomia`, `Scola`).
-  - Source Multi-Select (*Die Neue Südtiroler Tageszeitung*, *Salto.bz*, *La Usc di Ladins*, *RaiNews TGR TRAIL*).
-  - Language Variety Multi-Select (`de`, `it`, `lld_gherd`, `lld_badia`, `lld_fascia`).
-  - Date Range Picker (2017 to 2026).
-  - Net Sentiment Valence Slider ($-1.0$ to $+1.0$).
-  - Moral Foundation Threshold Slider (minimum moral density per 1,000 words).
-- **Results Table / Card Stream:**
-  - Displays article cards with Title, Outlet, Date, Language Variety badge, Word Count, and FTS5 Context Snippet with search terms highlighted.
-  - Interactive badges showing Net Sentiment, Top Emotion, and Dominant Moral Foundation.
-  - "Inspect Full Text" button opening the Article Deep-Dive modal/drawer.
+## 6. Corpus and provenance for German and Italian
 
-### View 2: Comparative Framing Radar (Triangulation View)
-- **Moral Foundations Radar Chart:**
-  - Comparative 5-axis polygon overlay comparing German (`de`), Italian (`it`), and Ladin (`lld`) framing on the queried topic.
-  - Axes: *Care*, *Fairness*, *Loyalty*, *Authority*, *Sanctity*.
-- **Discrete Emotion Distribution Bar / Polar Plot:**
-  - Plutchik 8-emotion density comparison per language group (*Anger, Anticipation, Disgust, Fear, Joy, Sadness, Surprise, Trust*).
-- **Virtue vs. Vice Polarity Matrix:**
-  - Stacked bar breakdown showing whether morality is framed affirmatively (virtue) or polemically (vice).
+German and Italian text must be **South Tyrolean regional production**, not national wire copy republished locally.
 
-### View 3: Temporal Discourse Dynamics (Timeline View)
-- **Time-Series Trend Chart:**
-  - Monthly or quarterly aggregation of topic coverage volume, mean sentiment valence, and moral density over time.
-  - Visual flags for regional milestone events (e.g., South Tyrolean provincial elections, regional budget debates, COVID-19 lockdowns).
-- **Outlet Divergence Heatmap:**
-  - Heatmap showing which outlets express the highest emotional intensity or moral framing on the queried topic.
+**Sources, in order:**
+1. **Journalism, open access:** *Salto.bz* (DE, IT), *Die Neue Südtiroler Tageszeitung* (DE), *RaiNews TGR Bolzano* Italian desk, *Barfuss* (DE), *ff* (DE), *QuiMedia / QuiBolzano* (IT).
+2. **Official press:** *Landespresseamt / Ufficio Stampa della Provincia* (`news.provinz.bz.it`, `news.provincia.bz.it`). Releases appear in German and Italian on the same day, which makes them a parallel anchor for comparing the two languages. They are tagged `source_type: "official_press"`, kept apart from journalism.
+3. **Paywalled, needing an agreement:** *Dolomiten* (`stol.it`) and *Alto Adige* (`altoadige.it`). These are the main daily papers of each community, so without them the comparison leans on smaller outlets. Access is a question for the project, not for engineering.
+4. **Later:** municipal gazettes (PDF/OCR noise), and broadcasts transcribed with Whisper.
 
-### View 4: Qualitative Article Inspector (Deep Dive)
-- **Full Text Reader:**
-  - Clean typographic layout displaying article title, byline/author, publication date, URL source link, and complete paragraphs.
-- **Interactive Linguistic Annotations:**
-  - Highlight tokens triggering NRC emotion scores (color-coded by positive/negative valence).
-  - Highlight tokens triggering Moral Foundations (color-coded by foundation).
-- **Metadata Sidebar:** Complete JSON metadata drawer (breadcrumbs, raw tags, categories, exact lexical diversity metrics: TTR, Hapax ratio, MSL).
+**Provenance checks** before an article enters the corpus:
+- **Wire agencies:** flag or reject ANSA, Adnkronos, APA, dpa, Italpress and Reuters bylines.
+- **Sections:** collect only regional sections, not national, world or sport.
+- **Local score:** density of South Tyrolean place names and political terms, stored as `local_provenance_score`.
 
-### View 6 / Analyst Workspace: Qualitative Highlighting & Note-Taking System
-- **Interactive Passage Quotation & Highlighting:**
-  - Analysts can select or input specific textual evidence/quotes directly from the full-text reader.
-- **Qualitative Coding Taxonomy:**
-  - Tag quotes with thematic research codes (e.g. `[Autonomy:Competences]`, `[Minority:Linguistic-Identity]`, `[School:Bilingualism]`, `[Brenner:Transit]`, `[Coalition:SVP-Lega]`) plus user-defined custom tags.
-- **Persistent Analyst Memos & Commentary:**
-  - Attach analytical qualitative notes and theoretical observations directly to the article and quote.
-- **Persistent Storage:**
-  - Backed by an `article_annotations` table in the local SQLite database (`data/processed/didi_corpus.db`).
-- **Visual Card Badges:**
-  - Articles with active annotations display an interactive badge: `📝 Annotated (X notes)`.
-- **Qualitative Codebook & Evidence Export:**
-  - 1-click export of all researcher highlights and memos into a formatted CSV or Markdown Codebook with full metadata and APA citations, ready for inclusion in research reports or import into MAXQDA/NVivo.
+Raw responses are kept unchanged with a checksum and timestamp, and re-running a collector only adds new material.
 
----
+## 7. Roadmap
 
-## 6. Implementation Plan & Milestones
+Each phase gets its own task prompt in `docs/coding/prompts/` before work starts, as for Tasks 0–4. Order and estimates are proposals.
 
-| Milestone | Focus Area | Deliverables | Status |
-| :---: | :--- | :--- | :---: |
-| **Day 1** | **Data Service & Project Scaffolding** | Create `src/ui/data_service.py` with cached queries; set up Streamlit layout (`src/ui/app.py`). | **Done** |
-| **Day 2** | **View 1: Corpus Explorer & Hybrid Search** | FTS5 search, trilingual concept thesaurus, dense MiniLM vector fusion, facet filters, paginated cards. | **Done** |
-| **Day 3** | **View 2: Comparative Framing Radar** | Plotly 5-axis MFT radar overlay and Plutchik emotion density distribution across DE, IT, and LLD. | **Done** |
-| **Day 4** | **View 3: Temporal Discourse Dynamics** | Monthly/quarterly longitudinal timeline of sentiment and moral foundation density (2017–2026). | **Done** |
-| **Day 5** | **View 4: Focus Events & Meaning-Making** | Hurtado-Bodell & Menshikova (2026); pre/post surge %, Dunning G² keyness, Jensen-Shannon MFDI. | **Done** |
-| **Day 5b** | **View 5: Article Inspector & Token Highlighting** | Single-article reader with in-text moral/emotion token highlighting and raw JSON metadata inspector. | **Done** |
-| **Day 6** | **Export, Triangulation & Caching Optimization** | 3-way Triangulation strip, 26-column research CSV export with APA citations, Keyness CSV export. | **Done** |
-| **Day 7** | **Packaging, Docker & Walkthrough** | Zero-config `Dockerfile` and `docker-compose.yml`, dual-remote Git governance synchronization. | **Done** |
-| **Phase 2.1** | **Qualitative Highlighting & Analyst Notes** | SQLite `article_annotations` table, inline quote capture, thematic coding tags, analyst memos, codebook export. | **Next** |
-| **Phase 2.2** | **CAQDAS QDPX Interoperability** | `.qdpx` export for direct import into MAXQDA (primary target; NVivo and ATLAS.ti untested). Article and metadata export is built and awaits a MAXQDA import test; coded segments and import back to DIDI come later. | **In progress** |
-| **Phase 3.1** | **Annotation Workbench** | React and Python app, developed locally: accounts, per-project codebooks, a project library, in-text highlighting, direct text coding and retrieval of coded passages across articles for up to 10 researchers. Hosting undecided. See [`docs/coding/PRD.md`](coding/PRD.md). | **Built, in use by Luca; researcher trial not yet held** |
+| Phase | What | Why now | Depends on |
+|---|---|---|---|
+| **1. Language scope** | One per-language definition; the app, search, passages and exports offer only configured languages (German and Italian). Ladin articles already in projects are hidden, not deleted. | Small, and it settles how Ladin returns later | Nothing |
+| **2. Tageszeitung and the word layer** | Import the 79,504 annotated Tageszeitung articles (Task 5), and store each word's position in `full_text`, lemma, part of speech, features and entity tag. Run Stanza on DIDI's 727 Salto articles, German and Italian, so they get the same layer. The other ~32,800 German Salto articles on the cluster wait for a decision on their text quality. No scraping. | Measures for any passage, code or article set are sums over words, and the reader can show which words produced a score | Nothing |
+| **3. Measures in the app, linked to codes** | Bring sentiment, emotion and moral measures into the new app, computed from the word layer: profiles for a code's passages against the rest of the project, code frequency by language, source and period, keyness for a code, and measure words as an optional layer in the reader. | The core of mixed methods; reuses existing measures | Phases 1 and 2 |
+| **4. Dictionary validation** | Check emotion and moral measures against human coding in German and Italian, using coded passages, and report agreement per language. If the official press is added later, its parallel German and Italian releases help check that the two languages are scored alike. | Comparisons between communities are only credible after this | Phases 2 and 3, and coded data |
+| **5. Sampling and focus events** | Draw random or balanced samples into a project; flag periods of unusual coverage and open them for coding. | Lets coded findings generalize | Phase 2 |
+| **6. Coder agreement** | Double-coding, blind mode, Krippendorff's alpha or another measure, adjudication. | Only once it's clear how coders will work | Researchers' working practice |
+| **7. Assisted coding** | Suggest passages similar to a code's examples, and estimate code frequencies across the corpus with a stated error. Needs a GPU or hosted model. | Scales coding to the whole corpus | Phases 3 and 4, enough coded data, hosting |
+| **8. Hosting** | Where it runs, logins, backups, and whether full text may be served to 10 users or sent to a model | Needed before researchers use it from their own computers | A decision by Luca and Eurac |
 
----
+**Later, not yet planned:** more corpora (the remaining Salto articles, the official press, another Italian source, paywalled dailies), provenance checks for them, named entities (people, parties, places), topic models across languages, QDPX export of coded segments and import, audio, porting the remaining Streamlit views and retiring Streamlit.
 
-## 7. Non-Functional Requirements & Governance
+### Ladin: returning later
 
-1. **Local Performance:**
-   - Database queries must execute in $< 200\text{ ms}$ using existing SQLite FTS5 and indexed columns (`publish_date`, `source`, `language`, `net_sentiment`).
-   - Streamlit page transitions must feel instantaneous using `@st.cache_data`.
-2. **Offline Reproducibility:**
-   - The entire dashboard must run completely offline without relying on external API calls or internet access (using the pre-compiled `didi_corpus.db`).
-3. **Data Governance & Copyright:**
-   - The local dashboard reads full text from the local SQLite database.
-   - Public code pushes continue to strictly respect the dual-remote policy (only code and metadata on GitHub, full-text and assets exclusively on the private GitLab).
-4. **Code Quality:**
-   - Modular architecture separating database logic (`src/storage/`), data transformation (`src/ui/data_service.py`), and visualization components (`src/ui/components/`).
+Ladin comes back as a new language once these hold:
+- Luca's Ladin pipeline (tokenizer, lemmatizer, tagger) works for the varieties in scope.
+- A Ladin speaker has reviewed the variety labels (Gherdëina, Badiot, Fascian).
+- Ladin dictionaries for emotion and moral measures are rebuilt with the new pipeline and validated as in Phase 4.
 
----
+Adding it should then mean adding a language definition (Phase 1), re-running measures, and checking provenance for Ladin sources. Existing Ladin articles, scrapers and the relabelling script (`scripts/relabel_ladin.py`) are kept for that moment.
 
-## 8. Success Criteria for the 1-Week Demo
+## 8. Open questions for the DIDI team (later)
 
-1. **Usability:** A social science researcher with zero command-line experience can open the browser, type a keyword (e.g., *"Scuola"* or *"Autonomie"*), and visually identify framing divergences between German, Italian, and Ladin news outlets.
-2. **Academic Credibility:** Every visual metric on screen links directly back to transparent textual evidence (clickable quotes and articles).
-3. **Institutional Readiness:** The demo serves as an immediate proof-of-concept for Eurac Research and University of Innsbruck presentations and project grant reviews.
+Not needed for the proof of concept. They matter once the platform goes beyond it.
 
+| Question | Why it matters |
+|---|---|
+| Which comparisons matter most: German against Italian, outlets against each other, journalism against official press, change over time? | Decides what Phase 3 shows first |
+| Which period should the corpus cover? | Decides how far back later collection goes |
+| Can the project get access to *Dolomiten* and *Alto Adige*? | Without them, each community's main daily paper is missing |
+| Will coders code the same articles independently? | Decides when Phase 6 is needed |
+| Which agreement measure do reviewers expect? | Krippendorff's alpha is the default |
+
+## 9. Requirements throughout
+
+- **Speed:** searches and list queries take under 200 ms against the real corpus.
+- **Tests:** API tests against PostgreSQL, unit tests, and browser tests with no third-party requests. Tests run on a small synthetic fixture, without the copyrighted corpus.
+- **Remotes:** code and copyright-safe metadata go to GitHub (`origin`); raw data and dictionary assets go only to the private GitLab (`gitlab`), using `scripts/sync_remotes.sh`. The SQLite databases stay on Luca's Mac (decided 2026-11-09, review by 2027-01-09; see `AGENTS.md`).
+- **Separation:** database access in services, UI in components; the Streamlit demo keeps working until it is retired.
