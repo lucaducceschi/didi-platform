@@ -7,3 +7,6 @@ sqlite-utils>=3.36
 streamlit>=1.66.0
 plotly>=5.18.0
 pandas>=2.0.0
+trafilatura==2.3.1
+typer==0.28.0
+PyYAML==6.0.3

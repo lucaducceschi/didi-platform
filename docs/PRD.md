@@ -45,12 +45,15 @@ It replaces MAXQDA for the project's coding (see [`coding/PRD.md`](coding/PRD.md
 
 | Source | Language | Articles | Period | Words |
 |---|---|---:|---|---:|
-| Salto.bz | German | 447 | 2017-10 to 2025-05, mostly 2024–2025 | 192,106 |
 | Die Neue Südtiroler Tageszeitung | German | 79,303 | 2015-01 to 2025-08 | 25,113,908 |
-| Salto.bz | Italian | 280 | 2021-03 to 2025-05 | 161,532 |
-| **Total** | | **80,030** | | **25,467,546** |
+| Landespresseamt / Ufficio Stampa | German | 10,947 | 2021-07 to 2026-03 | 1,529,582 |
+| Salto.bz | German | 447 | 2017-10 to 2025-05, mostly 2024–2025 | 192,106 |
+| Landespresseamt / Ufficio Stampa | Italian | 11,355 | 2021-07 to 2026-03 | 1,682,645 |
+| Salto.bz | Italian | 328 | 2021-03 to 2026-11 | 194,744 |
+| RAI TGR Bolzano | Italian | 21 | 2026-11 | 2,761 |
+| **Total (DE + IT)** | | **102,401** | | **28,715,746** |
 
-The full corpus database holds 91,392 articles and 27,629,163 words (including the 11,362 deferred Ladin articles). Stanza token-level Word Layer annotations for 79,293 Tageszeitung articles (30,275,813 tokens) are stored in `data/processed/didi_words.db`.
+The full corpus database holds 113,763 articles and 30,877,363 words (including the 11,362 deferred Ladin articles). Stanza token-level Word Layer annotations for 79,293 Tageszeitung articles (30,275,813 tokens) are stored in `data/processed/didi_words.db`. Official press releases are tagged `source_type: "official_press"`, with 10,928 bilingual DE/IT pairs linked via metadata.
 
 ### Stanza-annotated articles from the KST project (checked 2026-11-07)
 
@@ -62,13 +65,13 @@ Luca's KST project annotated two German sources with Stanza (`tokenize,lemma,pos
 | Salto.bz (DE) | 33,273 | 2013–2026 | No: none of 393 overlapping articles match; the cluster text lacks the lead paragraph and has line breaks in mid-sentence |
 
 - Each word has a lemma, parts of speech, morphological features, a dependency and a named-entity tag, and character positions that count from the start of `title + "\n" + text`.
-- There is no Italian. DIDI's 280 Italian Salto articles have no Stanza annotations yet.
+- There is no Italian word layer yet. DIDI's Italian articles (Salto, Provinz Press, RAI) await the Stanza run.
 - Some Tageszeitung text has words glued together (`enttäuschtauf`), probably from the original scrape. DIDI's 131 articles have the same flaw.
 
 Known gaps:
-- **Official press:** a scraper exists (`scripts/scrape_provinz_press.py`), but only 10 releases were fetched, and none are in the database.
-- **Provenance checks** (Section 6): the fields exist in `src/models/schema.py`, but nothing computes them. Every article defaults to a provenance score of 1.0, and none of the 858 stores one.
-- **Source manifests:** `config/sources/` was planned but never built. Each scraper is its own script.
+- **Official press:** 22,302 releases harvested via Kontent.ai Delivery API and imported into the corpus database with bilingual pairing.
+- **Provenance checks** (Section 6): Wire bylines (ANSA, Adnkronos, APA, dpa, Italpress, Reuters) are detected by `src/collectors/extract.py`. Every article stores `local_provenance_score`.
+- **Source manifests:** centralized registry in `src/sources.py` and `src/collectors/sources.yaml`.
 
 ### Software
 
@@ -113,7 +116,7 @@ Each phase gets its own task prompt in `docs/coding/prompts/` before work starts
 | Phase | What | Why now | Depends on |
 |---|---|---|---|
 | **1. Language scope** | One per-language definition; the app, search, passages and exports offer only configured languages (German and Italian). Ladin articles already in projects are hidden, not deleted. | Small, and it settles how Ladin returns later | Nothing |
-| **2. Tageszeitung and the word layer** | **Tageszeitung completed (Task 5):** 79,303 articles in corpus, 30.28M words in `didi_words.db`. **Stage 2:** Run Stanza locally on DIDI's 727 Salto articles (German and Italian) on `full_text` directly to give them the same word layer. The other ~32,800 German Salto articles on the cluster wait for a decision on their text quality. No scraping. | Measures for any passage, code or article set are sums over words, and the reader can show which words produced a score | Nothing |
+| **2. Tageszeitung, Open Italian Sources, and the Word Layer** | **Tageszeitung completed (Task 5):** 79,303 articles in corpus, 30.28M words in `didi_words.db`. **Italian collection completed (Task 7):** 22,371 new open articles added (11,355 IT and 10,947 DE Landespresseamt releases with 10,928 linked bilingual twins, 48 new Italian Salto articles, 21 Italian RAI TGR articles). **Stage 2:** Run Stanza locally on Salto, Provinz Press, and RAI articles on `full_text` directly to build their word layer. | Measures for any passage, code or article set are sums over words, and the reader can show which words produced a score | Nothing |
 | **3. Measures in the app, linked to codes** | Bring sentiment, emotion and moral measures into the new app, computed from the word layer: profiles for a code's passages against the rest of the project, code frequency by language, source and period, keyness for a code, **words behind every score** (click-to-evidence), **ingroup pronouns** (1st person plural *wir/uns/unser*, *noi/ci/nostro*), **Konjunktiv I** (German only, with hand-checked validation), and measure words as an optional layer in the reader. | The core of mixed methods; reuses existing measures | Phases 1 and 2 |
 | **3b. Comparison grid** | Project matrix view with rows by source, language or year, codes as columns, showing passage/article counts, chosen measure, top lemmas, and example quotes with drill-down to filtered passages and CSV export. | Essential synthesis for qualitative paper drafting | Phase 3 |
 | **3c. Direct quotes** | Detect direct quotes from quotation marks in language definitions, store quote spans, and split Stage 3 measures into inside vs. outside quotes (editorial vs. attributed voice), with human validation sample. | Isolates journalistic stance from quoted political actors | Phase 3 |

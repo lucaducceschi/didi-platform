@@ -30,6 +30,7 @@ from src.languages import (
     get_thesaurus,
     is_language_active,
 )
+from src.sources import SOURCE_LABELS, SOURCE_REGISTRY
 from src.nlp.hybrid_search import HybridSearchEngine
 from src.ui.qdpx import build_qdpx
 
@@ -55,13 +56,6 @@ FOUNDATION_POLE_COLS = [
 
 
 QDPX_EXPORT_LIMIT = 1500
-
-SOURCE_LABELS = {
-    "tageszeitung": "Die Neue Südtiroler Tageszeitung",
-    "salto": "Salto.bz",
-    "la_usc": "La Usc di Ladins",
-    "trail": "RaiNews TGR TRAIL"
-}
 
 # Regional Trilingual Thesaurus linking key South Tyrolean concepts across DE, IT, and Ladin.
 # Single source of truth is src.languages.

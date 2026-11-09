@@ -1,0 +1,52 @@
+# DIDI Open Media Collector Registry
+# Only open-access, regional sources (no paywalls, no cookies, no third-party agencies).
+
+user_agent: "DIDI-research-crawler/0.1 (Eurac Research)"
+
+sources:
+  - id: salto_it
+    name: Salto.bz (Italian)
+    language: it
+    kind: magazine
+    owner: independent (cooperative)
+    tier: 1
+    enabled: true
+    base_url: https://salto.bz/it
+    include: ['salto\.bz/it/article/']
+    sitemaps: ['https://salto.bz/sitemap.xml']
+    delay_seconds: 3.0
+    respect_robots: true
+    notes: >-
+      Open-access regional magazine. Bilingual newsroom. Sitemaps provide
+      Italian articles under /it/article/.
+
+  - id: rai_tgr_bolzano
+    name: RAI TGR Bolzano (Alto Adige)
+    language: it
+    kind: broadcaster
+    owner: RAI (public service)
+    tier: 1
+    enabled: true
+    base_url: https://www.rainews.it/tgr/bolzano/
+    include: ['rainews\.it/tgr/bolzano/articoli/']
+    sitemaps: []
+    rss: ['https://www.rainews.it/tgr/bolzano/rss/tutti']
+    delay_seconds: 3.0
+    respect_robots: true
+    notes: >-
+      Public service regional broadcaster (Italian newsroom in Bolzano).
+      Rolling live RSS feed.
+
+  - id: provinz_press
+    name: Provincia autonoma di Bolzano / Landespresseamt
+    language: multi
+    kind: institution
+    owner: Provincia autonoma di Bolzano
+    tier: 2
+    enabled: true
+    base_url: https://news.provincia.bz.it/
+    delay_seconds: 0.5
+    respect_robots: true
+    notes: >-
+      Official press releases from Landespresseamt / Ufficio Stampa.
+      Harvested via official Kontent.ai Delivery API (pairs DE & IT).

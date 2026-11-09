@@ -12,7 +12,7 @@ try:
 
     class DIDIArticle(BaseModel):
         id: str
-        source: Literal["tageszeitung", "la_usc", "salto", "trail", "provinz_news", "dolomiten", "altoadige"]
+        source: Literal["tageszeitung", "la_usc", "salto", "trail", "provinz_news", "rai_bolzano", "dolomiten", "altoadige"]
         language: str  # "de", "it", "lld", "lld_gherd", "lld_badia", "lld_fascia"
         url: str
         title: str
