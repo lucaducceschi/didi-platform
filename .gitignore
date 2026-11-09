@@ -17,6 +17,9 @@ ENV/
 data/raw/
 data/backups/
 data/processed/*.db
+# Kept local since 2026-11-09, review by 2027-01-09 (AGENTS.md, section 2)
+data/processed/didi_corpus.db
+data/processed/didi_words.db
 *.qdpx
 *.db-journal
 assets/
