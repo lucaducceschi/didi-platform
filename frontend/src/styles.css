@@ -13,6 +13,7 @@
   --danger: #a32a2a;
   --danger-contrast: #ffffff;
   --ok: #1f6f43;
+  --chart-track: #c4c7cc;
 }
 
 :root[data-theme='dark'] {
@@ -30,6 +31,7 @@
   --danger: #e07b7b;
   --danger-contrast: #1c1212;
   --ok: #7fd1a3;
+  --chart-track: #4a4f58;
 }
 
 * { box-sizing: border-box; }
@@ -350,4 +352,27 @@ td select { width: auto; min-height: 36px; padding: 4px 8px; }
   .search-layout, .article-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .article-body { order: 1; }
   .article-meta { order: 2; border-top: 1px solid var(--border); padding-top: 16px; }
+}
+
+/* Topic term list (TopicTermChart): one hue on a neutral track, figure per row */
+.term-chart { display: flex; flex-direction: column; gap: 8px; }
+.term-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.term-legend-figure { margin-left: auto; }
+.term-key { display: inline-block; width: 14px; height: 2px; margin-left: 8px; border-radius: 1px; }
+.term-key:first-child { margin-left: 0; }
+.term-key-topic { background: var(--accent); }
+.term-key-corpus { background: var(--chart-track); }
+.term-rows { margin: 0; padding: 0; list-style: none; }
+.term-row { display: grid; grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr) 3rem; align-items: center; gap: 10px; padding: 3px 4px; border-radius: 4px; color: var(--text); text-decoration: none; font-size: 0.875rem; }
+.term-row:hover, .term-row:focus-visible { background: var(--bg); }
+.term-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-bar { display: block; height: 12px; }
+.term-track { display: block; height: 100%; min-width: 2px; background: var(--chart-track); border-radius: 0 4px 4px 0; overflow: hidden; }
+.term-fill { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; box-shadow: 2px 0 0 var(--surface); }
+.term-figure { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.term-readout { min-height: 1.4em; }
+.topics-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 24px; align-items: start; }
+@media (max-width: 760px) {
+  .topics-layout { grid-template-columns: minmax(0, 1fr); }
+  .term-row { grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr) 2.5rem; }
 }

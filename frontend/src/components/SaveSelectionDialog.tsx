@@ -14,6 +14,10 @@ interface SaveSelectionDialogProps {
   selectedIds: string[]
   projects: Project[]
   defaultProjectId?: string
+  defaultName?: string
+  defaultDescription?: string
+  /** Save the given ids as a frozen selection, without offering the search criteria. */
+  idsOnly?: boolean
   onCancel: () => void
   onSuccess: (selection: SavedSelection, projectName: string) => void
 }
@@ -24,14 +28,17 @@ export function SaveSelectionDialog({
   selectedIds,
   projects,
   defaultProjectId,
+  defaultName,
+  defaultDescription = '',
+  idsOnly = false,
   onCancel,
   onSuccess,
 }: SaveSelectionDialogProps) {
   const [projectId, setProjectId] = useState(defaultProjectId || projects[0]?.id || '')
   const [name, setName] = useState(
-    filters.q ? `Selection: ${filters.q.trim()}` : `Corpus Subset (${new Date().toLocaleDateString()})`,
+    defaultName ?? (filters.q ? `Selection: ${filters.q.trim()}` : `Corpus Subset (${new Date().toLocaleDateString()})`),
   )
-  const [description, setDescription] = useState('')
+  const [description, setDescription] = useState(defaultDescription)
   const [saveMode, setSaveMode] = useState<'query' | 'selected'>(
     selectedIds.length > 0 ? 'selected' : 'query',
   )
@@ -143,6 +150,7 @@ export function SaveSelectionDialog({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '13px', fontWeight: 600 }}>Selection Basis</span>
+            {!idsOnly && (<>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
               <input
                 type="radio"
@@ -158,6 +166,7 @@ export function SaveSelectionDialog({
             <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '24px' }}>
               Preserves query parameters and materializes the current matching snapshot. Can be refreshed later.
             </span>
+            </>)}
 
             {selectedIds.length > 0 && (
               <>

@@ -4,6 +4,7 @@ import { ErrorMessage } from './components/Message'
 import { ThemeToggle } from './components/ThemeToggle'
 import { AccountPage } from './pages/AccountPage'
 import { ArticlePage } from './pages/ArticlePage'
+import { TopicsPage } from './pages/TopicsPage'
 import { CorpusAnalyticsPage } from './pages/CorpusAnalyticsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
@@ -26,6 +27,7 @@ export function App() {
               <NavLink to="/projects">Projects</NavLink>
               <NavLink to="/search">Corpus search</NavLink>
               <NavLink to="/analytics">Macro analytics</NavLink>
+              <NavLink to="/topics">Topics</NavLink>
               {user.is_admin && <NavLink to="/users">Users</NavLink>}
             </nav>
           )}
@@ -49,6 +51,7 @@ export function App() {
             <Route path="/projects/:projectId/*" element={<ProjectPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/analytics" element={<CorpusAnalyticsPage />} />
+            <Route path="/topics" element={<TopicsPage />} />
             <Route path="/articles/:id" element={<ArticlePage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/users" element={user.is_admin ? <UsersPage /> : <Navigate to="/projects" replace />} />

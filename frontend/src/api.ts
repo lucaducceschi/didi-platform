@@ -1058,3 +1058,85 @@ export interface WordBubbleItem {
 export const getWordBubbles = (mode = 'focus', signal?: AbortSignal) =>
   getJson<WordBubbleItem[]>(`/api/analytics/word-bubbles?mode=${encodeURIComponent(mode)}`, signal)
 
+
+// Light LDA topic models (backend/app/routers/topics.py)
+export interface Topic {
+  topic_id: number
+  /** Share of all words in the model's corpus (LDAvis topic size). */
+  word_share: number
+  dominant_articles: number
+  /** Most probable terms (lambda = 1). */
+  top_terms: string[]
+  /** Terms by LDAvis relevance at the default lambda (0.6). */
+  relevant_terms: string[]
+}
+
+export interface TopicTermItem {
+  term: string
+  relevance: number
+  p_term_topic: number
+  topic_count: number
+  corpus_count: number
+}
+
+export interface TopicTermsResponse {
+  model_id: string
+  topic_id: number
+  lambda: number
+  word_share: number
+  terms: TopicTermItem[]
+  closest: { topic_id: number; jsd: number }[]
+}
+
+export interface TopicModel {
+  model_id: string
+  method: string
+  language: string
+  n_topics: number
+  n_documents: number
+  vocabulary_size: number
+  created_at: string
+  topics: Topic[]
+}
+
+export interface TopicArticle {
+  id: string
+  weight: number
+  title: string
+  source: string
+  source_type: string
+  language: string
+  publish_date: string
+}
+
+export interface TopicArticlesResponse {
+  model_id: string
+  topic_id: number
+  min_weight: number
+  total: number
+  article_ids: string[]
+  articles: TopicArticle[]
+}
+
+export const listTopicModels = (signal?: AbortSignal) =>
+  getJson<{ models: TopicModel[] }>('/api/topics/models', signal)
+
+export const getTopicTerms = (modelId: string, topicId: number, lambda: number, signal?: AbortSignal) =>
+  getJson<TopicTermsResponse>(
+    `/api/topics/models/${encodeURIComponent(modelId)}/topics/${topicId}/terms?lambda=${lambda}&n=30`,
+    signal,
+  )
+
+export const getTopicArticles = (
+  modelId: string,
+  topicId: number,
+  params: { min_weight: number; source_type?: string },
+  signal?: AbortSignal,
+) => {
+  const query = new URLSearchParams({ min_weight: String(params.min_weight) })
+  if (params.source_type) query.set('source_type', params.source_type)
+  return getJson<TopicArticlesResponse>(
+    `/api/topics/models/${encodeURIComponent(modelId)}/topics/${topicId}/articles?${query}`,
+    signal,
+  )
+}

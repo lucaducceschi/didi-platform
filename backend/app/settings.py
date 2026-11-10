@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://didi:didi_dev@localhost:5433/didi"
     corpus_path: Path = PROJECT_ROOT / "data" / "processed" / "didi_corpus.db"
+    topics_path: Path = PROJECT_ROOT / "data" / "processed" / "didi_topics.db"
     build_version: str = "dev"
     # Must be true anywhere served over HTTPS. Local development runs over plain HTTP.
     cookie_secure: bool = False
