@@ -12,6 +12,8 @@ interface QuickCodeCardProps {
   coords: { top: number; left: number; placeAbove?: boolean }
   onSaved: (message: string | null) => void
   onCancel: () => void
+  /** A click outside the card: hide the card only. The selection and the full coding panel stay. */
+  onDismiss?: () => void
 }
 
 export function QuickCodeCard({
@@ -23,6 +25,7 @@ export function QuickCodeCard({
   coords,
   onSaved,
   onCancel,
+  onDismiss,
 }: QuickCodeCardProps) {
   const [filter, setFilter] = useState('')
   const [memo, setMemo] = useState('')
@@ -52,19 +55,24 @@ export function QuickCodeCard({
 
   // Auto-focus input on mount
   useEffect(() => {
-    inputRef.current?.focus()
+    inputRef.current?.focus({ preventScroll: true })
   }, [])
 
-  // Close when clicking outside
+  // Hide when clicking outside, e.g. in the full coding panel beside the text
   useEffect(() => {
+    const dismiss = onDismiss ?? onCancel
     const handleOutsideClick = (e: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        onCancel()
+      const target = e.target as Element
+      // Clicks in the coding panel leave the card alone: hiding it would shrink the page
+      // and move the sticky panel under the pointer, so the click would miss.
+      if (target.closest?.('[data-keeps-quick-code]')) return
+      if (cardRef.current && !cardRef.current.contains(target)) {
+        dismiss()
       }
     }
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
-  }, [onCancel])
+  }, [onCancel, onDismiss])
 
   const handleSave = (codeId: string) => {
     if (busy) return

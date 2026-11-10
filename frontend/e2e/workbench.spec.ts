@@ -169,7 +169,7 @@ test('wrong passwords, logging out and expired access', async ({ browser, baseUR
 
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Log in' }).click()
-  await expect(page.getByRole('link', { name: 'Projects' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Projects', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Log out' }).click()
   await expect(page.getByLabel('Password')).toBeVisible()
   await page.goto('/search')

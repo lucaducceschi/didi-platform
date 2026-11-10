@@ -237,6 +237,12 @@ def insert_quotes_batch(
     return len(tuples)
 
 
+def _has_quotes_table(conn: sqlite3.Connection) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'article_quotes'"
+    ).fetchone() is not None
+
+
 def get_article_quotes(
     db_path: Path, article_id: str
 ) -> List[Dict[str, Any]]:
@@ -245,6 +251,8 @@ def get_article_quotes(
         return []
 
     with _get_read_connection(db_path) as conn:
+        if not _has_quotes_table(conn):
+            return []  # quotes not stored yet: callers detect them on the fly
         cur = conn.cursor()
         cur.execute(
             """
@@ -266,6 +274,8 @@ def get_passage_quotes(
         return []
 
     with _get_read_connection(db_path) as conn:
+        if not _has_quotes_table(conn):
+            return []  # quotes not stored yet: callers detect them on the fly
         cur = conn.cursor()
         cur.execute(
             """

@@ -364,6 +364,7 @@ export function ReaderPage({ project }: { project: Project }) {
                   setPending(null)
                   setPendingCoords(null)
                 }}
+                onDismiss={() => setPendingCoords(null)}
               />
             ) : null
           }
@@ -374,7 +375,7 @@ export function ReaderPage({ project }: { project: Project }) {
             setPendingCoords(null)
           }}
         />
-        <aside className="reader-side" aria-label="Segments">
+        <aside className="reader-side" aria-label="Segments" data-keeps-quick-code>
           <ErrorMessage error={annotations.error ?? codes.error} />
 
           {notice && <p className="message" role="status">{notice}</p>}

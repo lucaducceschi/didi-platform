@@ -271,3 +271,13 @@ def test_quote_storage_sqlite(tmp_path: Path):
     empty_q = get_passage_quotes(db_file, "art_101", 130, 190)
     assert len(empty_q) == 0
 
+
+
+def test_stored_quotes_are_empty_when_the_table_does_not_exist(tmp_path):
+    """The real word layer has no article_quotes table yet: callers must fall back, not crash."""
+    from src.storage.word_layer import get_article_quotes, get_passage_quotes
+
+    db = tmp_path / "words.db"
+    sqlite3.connect(db).execute("CREATE TABLE article_words (article_id TEXT)").connection.close()
+    assert get_article_quotes(db, "a1") == []
+    assert get_passage_quotes(db, "a1", 0, 100) == []
