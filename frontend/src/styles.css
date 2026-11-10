@@ -14,6 +14,8 @@
   --danger-contrast: #ffffff;
   --ok: #1f6f43;
   --chart-track: #c4c7cc;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
 }
 
 :root[data-theme='dark'] {
@@ -32,6 +34,8 @@
   --danger-contrast: #1c1212;
   --ok: #7fd1a3;
   --chart-track: #4a4f58;
+  --series-1: #3987e5;
+  --series-2: #d95926;
 }
 
 * { box-sizing: border-box; }
@@ -376,3 +380,11 @@ td select { width: auto; min-height: 36px; padding: 4px 8px; }
   .topics-layout { grid-template-columns: minmax(0, 1fr); }
   .term-row { grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr) 2.5rem; }
 }
+
+/* Topic share over time (TopicShareChart) */
+.share-chart { display: flex; flex-direction: column; gap: 6px; }
+.share-key { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; }
+.share-key-line { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+.share-tooltip { position: absolute; top: 4px; min-width: 12rem; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); font-size: 0.8125rem; pointer-events: none; }
+.share-tooltip-title { margin-bottom: 4px; color: var(--muted); }
+.share-tooltip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }

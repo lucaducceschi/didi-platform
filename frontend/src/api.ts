@@ -1140,3 +1140,35 @@ export const getTopicArticles = (
     signal,
   )
 }
+
+export interface TopicTimelinePoint {
+  period: string
+  share: number
+  articles: number
+  words: number
+  small_sample: boolean
+}
+
+export interface TopicTimelineSeries {
+  source_type: string
+  points: TopicTimelinePoint[]
+}
+
+export interface TopicTimelineResponse {
+  model_id: string
+  topic_id: number
+  granularity: 'year' | 'month'
+  small_sample_articles: number
+  series: TopicTimelineSeries[]
+}
+
+export const getTopicTimeline = (
+  modelId: string,
+  topicId: number,
+  granularity: 'year' | 'month',
+  signal?: AbortSignal,
+) =>
+  getJson<TopicTimelineResponse>(
+    `/api/topics/models/${encodeURIComponent(modelId)}/topics/${topicId}/timeline?granularity=${granularity}`,
+    signal,
+  )

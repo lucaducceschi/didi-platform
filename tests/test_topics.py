@@ -62,10 +62,31 @@ def test_normalize_lemma():
     assert topics.normalize_lemma("2024") is None
 
 
+def test_build_matrix_drops_stopwords():
+    docs, terms = _corpus()
+    params = topics.LdaParams(min_df=2, max_df=1.0)
+    _, _, vocab = topics.build_matrix(docs, terms, params, stopwords={"land", "jahr"})
+    assert "land" not in vocab and "jahr" not in vocab and "statut" in vocab
+
+
+def test_timeline_shares_add_up_per_period():
+    doc_topic = np.array([[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]])
+    arrays = topics.timeline_arrays(doc_topic, np.array([10, 10, 20]),
+                                    ["2020-01", "2020-02", "2021-03"],
+                                    ["journalism", "journalism", "official_press"])
+    (journalism, press) = topics.topic_timeline(arrays, 0, "year")
+    assert journalism["points"] == [{"period": "2020", "share": 0.75, "articles": 2, "words": 20}]
+    assert press["points"][0]["share"] == 0.0
+    monthly = topics.topic_timeline(arrays, 0, "month")[0]["points"]
+    assert [p["period"] for p in monthly] == ["2020-01", "2020-02"]
+
+
 def _save(path, fitted, ids=None, language="de"):
     model_ids, doc_topic, stats, params = fitted
     ids = ids or model_ids
-    topics.save_model(path, f"lda_{language}_k2", language, ids, doc_topic[: len(ids)], stats, params)
+    timeline = topics.timeline_arrays(doc_topic[: len(ids)], np.full(len(ids), 10),
+                                      ["2020-01"] * len(ids), ["journalism"] * len(ids))
+    topics.save_model(path, f"lda_{language}_k2", language, ids, doc_topic[: len(ids)], stats, params, timeline)
 
 
 def test_save_and_read_round_trip(tmp_path, fitted):
@@ -102,4 +123,10 @@ def test_topic_api(world, fixture_records, tmp_path, monkeypatch, fitted):
     terms = world.coder.get(f"/api/topics/models/lda_de_k2/topics/{t}/terms", params={"lambda": 0.6, "n": 5}).json()
     assert len(terms["terms"]) == 5 and terms["closest"][0]["topic_id"] == 1 - t
     assert world.coder.get("/api/topics/models/lda_de_k2/topics/9/terms").status_code == 404
+
+    timeline = world.coder.get(f"/api/topics/models/lda_de_k2/topics/{t}/timeline").json()
+    (series,) = timeline["series"]
+    assert series["source_type"] == "journalism" and series["points"][0]["small_sample"] is True
+    assert world.coder.get(f"/api/topics/models/lda_de_k2/topics/{t}/timeline",
+                           params={"granularity": "week"}).status_code == 422
     assert world.coder.get("/api/topics/models/lda_lld_gherd_k2/topics/0/articles").status_code == 404

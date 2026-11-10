@@ -1,6 +1,6 @@
 """Read the light LDA topic models (src/nlp/topics.py); training is offline (scripts/train_topics.py)."""
 
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any, Dict, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from src.languages import get_active_language_codes
@@ -51,6 +51,29 @@ def get_topic_terms(
         "terms": topic_store.ranked_terms(stats, topic_id, lam, n),
         "closest": topic_store.closest_topics(stats, topic_id),
     }
+
+
+SMALL_SAMPLE_ARTICLES = 30  # same threshold as the comparison grid
+
+
+@router.get("/models/{model_id}/topics/{topic_id}/timeline")
+def get_topic_timeline(
+    model_id: str,
+    topic_id: int,
+    granularity: Literal["year", "month"] = "year",
+) -> Dict[str, Any]:
+    """The topic's share of words per period, one series per source type."""
+    path = get_settings().topics_path
+    _active_model(path, model_id, topic_id)
+    arrays = topic_store.load_timeline(path, model_id)
+    if arrays is None:
+        raise HTTPException(404, "This model has no timeline; retrain it")
+    series = topic_store.topic_timeline(arrays, topic_id, granularity)
+    for s in series:
+        for point in s["points"]:
+            point["small_sample"] = point["articles"] < SMALL_SAMPLE_ARTICLES
+    return {"model_id": model_id, "topic_id": topic_id, "granularity": granularity,
+            "small_sample_articles": SMALL_SAMPLE_ARTICLES, "series": series}
 
 
 @router.get("/models/{model_id}/topics/{topic_id}/articles")

@@ -25,6 +25,9 @@ class LanguageDefinition:
     word_layer_source: Dict[str, Any]
     caution: Optional[str] = None
     search_synonyms: Dict[str, str] = field(default_factory=dict)
+    # Lemmas left out of topic models: light verbs, auxiliaries, determiners Stanza
+    # sometimes tags as content words, and outlet names (src/nlp/topics.py).
+    topic_stopwords: frozenset = frozenset()
 
 
 LANGUAGES: Dict[str, LanguageDefinition] = {
@@ -73,6 +76,13 @@ LANGUAGES: Dict[str, LanguageDefinition] = {
             "zweisprachigkeit": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
             "muttersprache": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
         },
+        topic_stopwords=frozenset("""
+            haben sein werden sagen geben gehen machen kommen stehen lassen sollen müssen
+            können wollen dürfen mögen bleiben sehen finden halten heißen nehmen bringen
+            der die das ein eine kein dies jener welch all viel mehr weit ganz ander
+            neu erst letzt gut groß klein hoch lang
+            tageszeitung salto südtirol-news tageszeitung.it seite foto
+            """.split()),
     ),
     "it": LanguageDefinition(
         code="it",
@@ -115,6 +125,13 @@ LANGUAGES: Dict[str, LanguageDefinition] = {
             "bilinguismo": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
             "madrelingua": "zweisprachig* OR bilingu* OR muttersprach* OR madrelingu* OR lingaz*",
         },
+        topic_stopwords=frozenset("""
+            essere avere fare dire potere dovere volere venire andare stare dare vedere
+            sapere rendere mettere tenere prendere parlare trovare
+            altro stesso nuovo primo ultimo grande piccolo buono tutto molto ogni
+            salto provincia.bz.it foto
+            von der die das und für mit bei auf
+            """.split()),
     ),
     "lld_gherd": LanguageDefinition(
         code="lld_gherd",

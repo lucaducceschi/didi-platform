@@ -151,8 +151,9 @@ def read_article_terms(
     return docs, list(terms)
 
 
-def build_matrix(docs: Dict[str, array], terms: List[str], params: LdaParams, min_terms: int = 1):
-    """Document-term count matrix, pruned by document frequency like CountVectorizer."""
+def build_matrix(docs: Dict[str, array], terms: List[str], params: LdaParams, min_terms: int = 1,
+                 stopwords: Iterable[str] = ()):
+    """Document-term count matrix, pruned by stopwords and document frequency."""
     from scipy.sparse import coo_matrix
 
     ids = sorted(aid for aid, d in docs.items() if len(d) >= min_terms)
@@ -163,7 +164,9 @@ def build_matrix(docs: Dict[str, array], terms: List[str], params: LdaParams, mi
     X.sum_duplicates()
 
     df = np.bincount(X.indices, minlength=len(terms))
-    keep = np.flatnonzero((df >= params.min_df) & (df <= params.max_df * len(ids)))
+    stop = set(stopwords)
+    allowed = np.array([term not in stop for term in terms], dtype=bool)
+    keep = np.flatnonzero((df >= params.min_df) & (df <= params.max_df * len(ids)) & allowed)
     if len(keep) > params.max_features:
         freq = np.asarray(X[:, keep].sum(axis=0)).ravel()
         keep = np.sort(keep[np.argsort(-freq, kind="stable")[: params.max_features]])
@@ -207,6 +210,51 @@ def fit_lda(X, vocabulary: np.ndarray, params: LdaParams) -> Tuple[np.ndarray, T
     return doc_topic, stats
 
 
+def timeline_arrays(doc_topic: np.ndarray, doc_len: np.ndarray, months: List[str],
+                    source_types: List[str]) -> Dict[str, np.ndarray]:
+    """Words per (source type, month, topic), plus words and articles per (source type, month).
+
+    A topic's share of a period is its estimated words there over all words there,
+    the same measure as its overall size, so the line and the size agree.
+    """
+    periods = sorted(set(months))
+    types = sorted(set(source_types))
+    p_idx = {p: i for i, p in enumerate(periods)}
+    s_idx = {s: i for i, s in enumerate(types)}
+    tokens = np.zeros((len(types), len(periods), doc_topic.shape[1]))
+    words = np.zeros((len(types), len(periods)))
+    articles = np.zeros((len(types), len(periods)), dtype=np.int64)
+    for row, length, month, stype in zip(doc_topic, doc_len, months, source_types):
+        s, p = s_idx[stype], p_idx[month]
+        tokens[s, p] += row * length
+        words[s, p] += length
+        articles[s, p] += 1
+    return {"timeline_periods": np.array(periods, dtype=str),
+            "timeline_source_types": np.array(types, dtype=str),
+            "timeline_tokens": tokens, "timeline_words": words, "timeline_articles": articles}
+
+
+def topic_timeline(arrays: Dict[str, np.ndarray], topic_id: int, granularity: str = "year"
+                   ) -> List[Dict[str, Any]]:
+    """Per source type, the topic's share of words per year or month."""
+    periods = arrays["timeline_periods"]
+    keys = [str(p)[:4] if granularity == "year" else str(p) for p in periods]
+    buckets = sorted(set(keys))
+    b_idx = np.array([buckets.index(k) for k in keys])
+    series = []
+    for s, stype in enumerate(arrays["timeline_source_types"]):
+        tok = np.bincount(b_idx, weights=arrays["timeline_tokens"][s, :, topic_id], minlength=len(buckets))
+        wrd = np.bincount(b_idx, weights=arrays["timeline_words"][s], minlength=len(buckets))
+        art = np.bincount(b_idx, weights=arrays["timeline_articles"][s], minlength=len(buckets))
+        series.append({
+            "source_type": str(stype),
+            "points": [{"period": b, "share": round(float(tok[i] / wrd[i]), 5),
+                        "articles": int(art[i]), "words": int(wrd[i])}
+                       for i, b in enumerate(buckets) if art[i] > 0],
+        })
+    return series
+
+
 def relevance(stats: TopicStats, topic_id: int, lam: float) -> np.ndarray:
     """LDAvis relevance of every term for one topic."""
     p_w = stats.term_counts / stats.term_counts.sum()
@@ -242,7 +290,8 @@ def _to_blob(arr: np.ndarray) -> bytes:
 
 
 def save_model(topics_db: Path, model_id: str, language: str, article_ids: List[str],
-               doc_topic: np.ndarray, stats: TopicStats, params: LdaParams) -> None:
+               doc_topic: np.ndarray, stats: TopicStats, params: LdaParams,
+               extra_arrays: Optional[Dict[str, np.ndarray]] = None) -> None:
     conn = sqlite3.connect(topics_db)
     try:
         conn.executescript(SCHEMA)
@@ -265,7 +314,8 @@ def save_model(topics_db: Path, model_id: str, language: str, article_ids: List[
         conn.executemany(
             "INSERT INTO model_arrays VALUES (?, ?, ?)",
             [(model_id, name, _to_blob(getattr(stats, name)))
-             for name in ("vocabulary", "phi", "term_counts", "topic_tokens", "topic_jsd")],
+             for name in ("vocabulary", "phi", "term_counts", "topic_tokens", "topic_jsd")]
+            + [(model_id, name, _to_blob(arr)) for name, arr in (extra_arrays or {}).items()],
         )
         rows = []
         for aid, weights in zip(article_ids, doc_topic):
@@ -333,7 +383,28 @@ def _load_stats(path: str, model_id: str, mtime: float) -> Optional[TopicStats]:
                                         (model_id,))}
     finally:
         conn.close()
-    return TopicStats(**arrays) if len(arrays) == 5 else None
+    core = ("vocabulary", "phi", "term_counts", "topic_tokens", "topic_jsd")
+    return TopicStats(**{k: arrays[k] for k in core}) if all(k in arrays for k in core) else None
+
+
+@lru_cache(maxsize=8)
+def _load_timeline(path: str, model_id: str, mtime: float) -> Optional[Dict[str, np.ndarray]]:
+    conn = _connect_ro(Path(path))
+    if conn is None:
+        return None
+    try:
+        arrays = {r["name"]: np.load(io.BytesIO(r["data"]), allow_pickle=False)
+                  for r in conn.execute("SELECT name, data FROM model_arrays "
+                                        "WHERE model_id = ? AND name LIKE 'timeline_%'", (model_id,))}
+    finally:
+        conn.close()
+    return arrays if len(arrays) == 5 else None
+
+
+def load_timeline(topics_db: Path, model_id: str) -> Optional[Dict[str, np.ndarray]]:
+    if not Path(topics_db).exists():
+        return None
+    return _load_timeline(str(topics_db), model_id, Path(topics_db).stat().st_mtime)
 
 
 def load_stats(topics_db: Path, model_id: str) -> Optional[TopicStats]:

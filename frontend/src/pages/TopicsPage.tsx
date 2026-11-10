@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { type TopicModel, getTopicArticles, getTopicTerms, listProjects, listTopicModels } from '../api'
+import { type TopicModel, getTopicArticles, getTopicTerms, getTopicTimeline, listProjects, listTopicModels } from '../api'
 import { ErrorMessage } from '../components/Message'
 import { SaveSelectionDialog } from '../components/SaveSelectionDialog'
+import { TopicShareChart } from '../components/TopicShareChart'
 import { TopicTermChart } from '../components/TopicTermChart'
 import { useApi } from '../useApi'
 
@@ -24,10 +25,12 @@ export function TopicsPage() {
   const [modelId, setModelId] = useState<string | null>(null)
   const [topicId, setTopicId] = useState<number | null>(null)
   const [lambda, setLambda] = useState(DEFAULT_LAMBDA)
+  const [granularity, setGranularity] = useState<'year' | 'month'>('year')
   const [minWeight, setMinWeight] = useState(0.3)
   const [sourceType, setSourceType] = useState('')
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
 
   const all = models.data?.models ?? []
   const model = all.find((m) => m.model_id === modelId) ?? all[0]
@@ -36,6 +39,11 @@ export function TopicsPage() {
   const terms = useApi(
     (signal) => (selected ? getTopicTerms(selected.modelId, selected.topicId, lambda, signal) : Promise.resolve(null)),
     `topic-terms|${selected?.modelId}|${selected?.topicId}|${lambda}`,
+  )
+  const timeline = useApi(
+    (signal) =>
+      selected ? getTopicTimeline(selected.modelId, selected.topicId, granularity, signal) : Promise.resolve(null),
+    `topic-timeline|${selected?.modelId}|${selected?.topicId}|${granularity}`,
   )
   const articles = useApi(
     (signal) =>
@@ -59,6 +67,10 @@ export function TopicsPage() {
   const choose = (id: number) => {
     setTopicId(id)
     setNotice(null)
+    // On a phone the details sit below all the topics: bring them into view.
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+    }
   }
 
   return (
@@ -94,6 +106,7 @@ export function TopicsPage() {
                 type="button"
                 className="segment-item"
                 aria-pressed={t.topic_id === topicId}
+                aria-label={`Topic ${t.topic_id + 1}, ${pct(t.word_share)} of words, leads in ${t.dominant_articles} articles: ${relevantTerms(model, t.topic_id, 8)}`}
                 onClick={() => choose(t.topic_id)}
               >
                 <strong>Topic {t.topic_id + 1}</strong>
@@ -106,7 +119,7 @@ export function TopicsPage() {
           ))}
         </ul>
 
-        <div className="stack">
+        <div className="stack" ref={detailRef}>
           {selected === null ? (
             <p className="hint">Choose a topic to see its terms and articles.</p>
           ) : (
@@ -152,6 +165,26 @@ export function TopicsPage() {
                   </p>
                 </>
               )}
+
+              <h3 className="section-divider" style={{ margin: 0 }}>Share of words over time</h3>
+              <div className="segmented" role="group" aria-label="Period">
+                {(['year', 'month'] as const).map((g) => (
+                  <button key={g} type="button" aria-pressed={g === granularity} onClick={() => setGranularity(g)}>
+                    {g === 'year' ? 'By year' : 'By month'}
+                  </button>
+                ))}
+              </div>
+              {timeline.error && <ErrorMessage error={timeline.error} />}
+              {timeline.data && (
+                <TopicShareChart
+                  series={timeline.data.series}
+                  smallSampleArticles={timeline.data.small_sample_articles}
+                />
+              )}
+              <p className="hint">
+                Coverage differs by source: Tageszeitung from 2015, the press office from mid-2021, and Italian
+                journalism is thin before 2025.
+              </p>
 
               <h3 className="section-divider" style={{ margin: 0 }}>Articles</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>

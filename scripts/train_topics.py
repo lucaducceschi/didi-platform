@@ -17,11 +17,15 @@ import time
 from collections import Counter
 from pathlib import Path
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.languages import get_active_language_codes
-from src.nlp.topics import LdaParams, build_matrix, fit_lda, ranked_terms, read_article_terms, save_model
+from src.languages import get_active_language_codes, get_language
+from src.nlp.topics import (LdaParams, build_matrix, fit_lda, ranked_terms, read_article_terms,
+                             save_model, timeline_arrays)
+from src.sources import get_source_type
 
 CORPUS_DB = ROOT / "data" / "processed" / "didi_corpus.db"
 WORDS_DB = ROOT / "data" / "processed" / "didi_words.db"
@@ -45,6 +49,7 @@ def main():
         languages,
     ))
     source_of = dict(conn.execute("SELECT id, source FROM articles"))
+    month_of = dict(conn.execute("SELECT id, substr(publish_date, 1, 7) FROM articles"))
 
     t0 = time.time()
     docs, terms = read_article_terms(WORDS_DB, lang_of)
@@ -56,13 +61,18 @@ def main():
         if not lang_docs:
             print(f"{lang}: no annotated articles, skipped")
             continue
-        ids, X, vocab = build_matrix(lang_docs, terms, params, min_terms=MIN_LEMMAS)
+        stopwords = get_language(lang).topic_stopwords
+        ids, X, vocab = build_matrix(lang_docs, terms, params, min_terms=MIN_LEMMAS, stopwords=stopwords)
         sources = Counter(source_of[a] for a in ids)
-        params.extra = {"min_lemmas": MIN_LEMMAS, "sources": dict(sources)}
+        params.extra = {"min_lemmas": MIN_LEMMAS, "sources": dict(sources),
+                        "stopwords": sorted(stopwords)}
         t1 = time.time()
         doc_topic, stats = fit_lda(X, vocab, params)
         model_id = f"lda_{lang}_k{params.n_topics}"
-        save_model(TOPICS_DB, model_id, lang, ids, doc_topic, stats, params)
+        timeline = timeline_arrays(doc_topic, np.asarray(X.sum(axis=1)).ravel(),
+                                   [month_of[a] for a in ids],
+                                   [get_source_type(source_of[a]) for a in ids])
+        save_model(TOPICS_DB, model_id, lang, ids, doc_topic, stats, params, timeline)
         print(f"{model_id}: {len(ids)} articles {dict(sources)}, "
               f"{len(vocab)} terms, {time.time() - t1:.0f}s", flush=True)
         for t in range(params.n_topics):
