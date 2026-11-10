@@ -156,6 +156,20 @@ class State:
             (url, source_id, reason, retryable, now),
         )
 
+    def failures(self, source_id: Optional[str] = None) -> List[dict]:
+        """Return all failure records."""
+        if source_id:
+            cur = self.db.execute(
+                "SELECT url, source_id, reason, retryable, attempts, last_try FROM failures WHERE source_id=?",
+                (source_id,),
+            )
+        else:
+            cur = self.db.execute(
+                "SELECT url, source_id, reason, retryable, attempts, last_try FROM failures"
+            )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
     def retryable_failures(self, source_id: str, max_attempts: int = 3) -> List[str]:
         """Return only failures with retryable network/server errors."""
         return [

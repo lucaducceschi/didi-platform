@@ -46,6 +46,7 @@ class Article:
     language: Optional[str] = None
     text: str = ""
     is_accessible_for_free: Optional[bool] = None
+    is_subscription_gated: bool = False
     extraction_method: str = ""
     trafilatura_version: str = field(default_factory=lambda: getattr(trafilatura, "__version__", "unknown"))
     collector_version: str = field(default=COLLECTOR_VERSION)
@@ -208,10 +209,24 @@ def extract(
     _from_jsonld(soup, art)
     _from_meta(soup, art)
 
+    # Detect subscription-gated / ad-based pages (e.g. Salto S+ / cta-free-article)
+    has_sub_gate = bool(
+        soup.select(".cta-free-article, .salto-plus, .field--name-field-salto-plus, [class*='salto-plus']")
+        or "Jetzt S+ abonnieren" in html
+        or "Dieser Artikel ist für dich kostenlos" in html
+    )
+    art.is_subscription_gated = has_sub_gate
+    if has_sub_gate and art.is_accessible_for_free is None:
+        art.is_accessible_for_free = False
+
+    # Decompose any CTA subscription blocks from DOM before text extraction
+    for cta in soup.select(".cta-free-article, [class*='cta-']"):
+        cta.decompose()
+
     # 1. Primary: Trafilatura
     if not art.text:
         txt = trafilatura.extract(
-            html,
+            str(soup),
             url=final_url or url,
             include_comments=False,
             include_tables=False,

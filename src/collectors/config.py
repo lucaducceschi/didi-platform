@@ -37,6 +37,7 @@ class Source(BaseModel):
     include: List[str] = Field(default_factory=list)
     exclude: List[str] = Field(default_factory=list)
     body_selector: Optional[str] = None
+    skip_subscription: bool = True
     delay_seconds: float = 3.0
     respect_robots: bool = True
     notes: str = ""

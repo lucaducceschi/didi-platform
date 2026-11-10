@@ -17,11 +17,16 @@ import logging
 import os
 import shutil
 import sqlite3
+import sys
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.harmonizers.collected import CollectedHarmonizer, link_bilingual_twins
 from src.models.schema import DIDIArticle

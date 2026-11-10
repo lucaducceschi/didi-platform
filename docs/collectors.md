@@ -9,12 +9,13 @@ This document describes the architecture, operation, and maintenance of the open
 ## 1. Scope & Governance Principles
 
 1. **Open Access Only:** No paywalled sites (e.g. *Dolomiten*, *Alto Adige*, *Corriere dell'Alto Adige*), no cookies, no authentication tokens, no login walls.
-2. **Provenance & Exclusions:** Commercial wire agencies (ANSA, Adnkronos, APA, dpa, Italpress, Reuters) are detected and flagged. Only verified regional South Tyrolean production is ingested.
-3. **Respectful Crawling:**
+2. **Provenance & Exclusions:** Commercial wire agency bylines (ANSA, Adnkronos, APA, dpa, Italpress, Reuters) are detected and flagged. Other provenance checks (sections, South Tyrolean place names) are not built yet. Note: the press office collector sets `local_provenance_score` to 1.0 without computing it, and the local provenance score (PRD Section 6) is still not computed anywhere.
+3. **Genre & Source Types:** `source_type` (`journalism` vs `official_press`) lives in `src/sources.py` per source, not in the corpus database. Note that the Italian corpus currently consists mostly of official press releases (11,355 releases vs. ~350 journalism articles from Salto and RAI).
+4. **Respectful Crawling:**
    - Honest user agent: `DIDI-research-crawler/0.1 (Eurac Research)`.
    - Politeness: strict adherence to `robots.txt`, 3.0s delay between requests + random jitter, exponential backoff on 429/503.
    - 10-error cap stops misbehaving runs.
-4. **Data Preservation:** Raw HTML pages are saved gzipped with SHA-256 and fetch timestamp. Existing `full_text` in the corpus database is **never modified** or overwritten to preserve coded annotations and character offsets.
+5. **Data Preservation:** Raw HTML pages are saved gzipped with SHA-256 and fetch timestamp. Existing `full_text` in the corpus database is **never modified** or overwritten to preserve coded annotations and character offsets.
 
 ---
 

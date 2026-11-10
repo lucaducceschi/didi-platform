@@ -9,6 +9,7 @@ from sqlalchemy import case, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 from src.languages import get_active_language_codes
+from src.sources import SOURCE_TYPE_LABELS, get_source_type
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS, DataService
 
 from backend.app.errors import conflict, not_found
@@ -168,6 +169,7 @@ def get_library(
     user_id: uuid.UUID,
     languages: Optional[List[str]],
     sources: Optional[List[str]],
+    types: Optional[List[str]],
     status: Optional[str],
     page: int,
     page_size: int,
@@ -179,6 +181,7 @@ def get_library(
     hidden_articles = sum(1 for item in metadata.values() if item and item["language"] not in active_codes)
     language_counts = Counter(item["language"] for item in metadata.values() if item and item["language"] in active_codes)
     source_counts = Counter(item["source"] for item in metadata.values() if item and (item["language"] in active_codes or item["language"] is None))
+    source_type_counts = Counter(get_source_type(item["source"]) for item in metadata.values() if item and (item["language"] in active_codes or item["language"] is None))
 
     mine = dict(
         db.execute(
@@ -197,6 +200,8 @@ def get_library(
         if languages and (item is None or item["language"] not in languages):
             return False
         if sources and (item is None or item["source"] not in sources):
+            return False
+        if types and (item is None or get_source_type(item["source"]) not in types):
             return False
         return not status or mine.get(article_id, "not_started") == status
 
@@ -229,6 +234,7 @@ def get_library(
             "title": item["title"] if item else article_id,
             "source": item["source"] if item else None,
             "source_label": SOURCE_LABELS.get(item["source"], item["source"]) if item else None,
+            "source_type": get_source_type(item["source"]) if item else None,
             "language": item["language"] if item else None,
             "language_label": LANGUAGE_LABELS.get(item["language"], item["language"]) if item else None,
             "publish_date": item["publish_date"][:10] if item else None,
@@ -248,4 +254,5 @@ def get_library(
         "hidden_articles": hidden_articles,
         "languages": [{"id": key, "label": LANGUAGE_LABELS.get(key, key), "count": count} for key, count in sorted(language_counts.items())],
         "sources": [{"id": key, "label": SOURCE_LABELS.get(key, key), "count": count} for key, count in sorted(source_counts.items())],
+        "source_types": [{"id": key, "label": SOURCE_TYPE_LABELS.get(key, key), "count": count} for key, count in sorted(source_type_counts.items())],
     }

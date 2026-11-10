@@ -3,6 +3,7 @@ import sqlite3
 from typing import Annotated, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from src.sources import get_source_type
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS
 
 from backend.app.corpus import get_corpus, snippet_parts
@@ -35,11 +36,12 @@ def get_library(
     db: Db,
     language: Annotated[Optional[List[str]], Query()] = None,
     source: Annotated[Optional[List[str]], Query()] = None,
+    type: Annotated[Optional[List[str]], Query()] = None,
     status: Optional[Literal["not_started", "in_progress", "done"]] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ):
-    res = library.get_library(db, get_corpus(), access.project.id, access.user.id, language, source, status, page, page_size)
+    res = library.get_library(db, get_corpus(), access.project.id, access.user.id, language, source, type, status, page, page_size)
     if not (access.is_lead or access.user.is_admin):
         res["hidden_articles"] = 0
     return res
@@ -64,6 +66,7 @@ def search_for_project(
     db: Db,
     q: str = "",
     source: Annotated[Optional[List[str]], Query()] = None,
+    type: Annotated[Optional[List[str]], Query()] = None,
     language: Annotated[Optional[List[str]], Query()] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -71,9 +74,9 @@ def search_for_project(
     corpus = get_corpus()
     try:
         rows, total = corpus.search_articles(
-            query=q, sources=source, languages=language, use_hybrid=False, active_only=True, limit=page_size, offset=(page - 1) * page_size
+            query=q, sources=source, source_types=type, languages=language, use_hybrid=False, active_only=True, limit=page_size, offset=(page - 1) * page_size
         )
-        all_matches = set(corpus.search_article_ids(q, source, language, active_only=True))
+        all_matches = set(corpus.search_article_ids(q, sources=source, source_types=type, languages=language, active_only=True))
         can_see_hidden = access.is_lead or access.user.is_admin
         hidden_articles = (corpus.count_unconfigured_matches(query=q, sources=source) if q.strip() else 0) if can_see_hidden else 0
     except sqlite3.OperationalError:
@@ -93,6 +96,7 @@ def search_for_project(
                 "id": row["id"],
                 "title": row["title"],
                 "source_label": SOURCE_LABELS.get(row["source"], row["source"]),
+                "source_type": row.get("source_type") or get_source_type(row["source"]),
                 "language_label": LANGUAGE_LABELS.get(row["language"], row["language"]),
                 "publish_date": row["publish_date"][:10],
                 "word_count": row["word_count"],
@@ -107,7 +111,7 @@ def search_for_project(
 @router.post("/articles/from-search", response_model=ProjectArticlesAdded)
 def add_from_search(body: ProjectArticlesFromSearch, access: ManagerAccess, db: Db):
     try:
-        ids = get_corpus().search_article_ids(body.q, body.source, body.language, active_only=True)
+        ids = get_corpus().search_article_ids(body.q, sources=body.source, source_types=body.type, languages=body.language, active_only=True)
     except sqlite3.OperationalError:
         if body.q.strip():
             raise HTTPException(status_code=400, detail=BAD_SEARCH)
@@ -126,6 +130,16 @@ def _require_article(db, project_id, article_id: str) -> None:
 def get_project_article(article_id: str, access: ReadAccess, db: Db):
     _require_article(db, access.project.id, article_id)
     return article_detail(get_corpus(), article_id)
+
+
+@router.get("/articles/{article_id}/dictionary-spans")
+def get_project_article_dictionary_spans(article_id: str, access: ReadAccess, db: Db):
+    _require_article(db, access.project.id, article_id)
+    from backend.app.services.measures import get_article_dictionary_spans
+    corpus = get_corpus()
+    meta = corpus.get_article_metadata([article_id]).get(article_id, {})
+    lang = meta.get("language", "de")
+    return get_article_dictionary_spans(article_id, lang)
 
 
 @router.get("/articles/{article_id}/progress", response_model=ProgressOut)

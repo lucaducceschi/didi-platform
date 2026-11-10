@@ -43,17 +43,23 @@ It replaces MAXQDA for the project's coding (see [`coding/PRD.md`](coding/PRD.md
 
 ### Corpus (German and Italian)
 
-| Source | Language | Articles | Period | Words |
-|---|---|---:|---|---:|
-| Die Neue Südtiroler Tageszeitung | German | 79,303 | 2015-01 to 2025-08 | 25,113,908 |
-| Landespresseamt / Ufficio Stampa | German | 10,947 | 2021-07 to 2026-03 | 1,529,582 |
-| Salto.bz | German | 447 | 2017-10 to 2025-05, mostly 2024–2025 | 192,106 |
-| Landespresseamt / Ufficio Stampa | Italian | 11,355 | 2021-07 to 2026-03 | 1,682,645 |
-| Salto.bz | Italian | 328 | 2021-03 to 2026-11 | 194,744 |
-| RAI TGR Bolzano | Italian | 21 | 2026-11 | 2,761 |
-| **Total (DE + IT)** | | **102,401** | | **28,715,746** |
+| Source | Type | Language | Articles | Period | Words |
+|---|---|---|---:|---|---:|
+| Die Neue Südtiroler Tageszeitung | Journalism | German | 79,303 | 2015-01 to 2025-08 | 25,113,908 |
+| Landespresseamt / Ufficio Stampa | Official press | German | 10,947 | 2021-07 to 2026-03 | 1,529,582 |
+| Salto.bz | Journalism | German | 447 | 2017-10 to 2025-05, mostly 2024–2025 | 192,106 |
+| Landespresseamt / Ufficio Stampa | Official press | Italian | 11,355 | 2021-07 to 2026-03 | 1,682,645 |
+| Salto.bz | Journalism | Italian | 388 | 2021-03 to 2026-11 | 234,495 |
+| RAI TGR Bolzano | Journalism | Italian | 21 | 2026-11 | 2,761 |
+| **Total (DE + IT)** | | | **102,461** | | **28,755,497** |
 
-The full corpus database holds 113,763 articles and 30,877,363 words (including the 11,362 deferred Ladin articles). Stanza token-level Word Layer annotations for 79,293 Tageszeitung articles (30,275,813 tokens) are stored in `data/processed/didi_words.db`. Official press releases are tagged `source_type: "official_press"`, with 10,928 bilingual DE/IT pairs linked via metadata.
+**Discourse breakdown & genre asymmetry:**
+- **German:** 79,750 journalism articles (98.6%) vs. 10,947 official press releases (1.4%).
+- **Italian:** 409 journalism articles (388 Salto, 21 RAI; 3.5%) vs. 11,355 official press releases (96.5%). Italian journalism is about 400 articles; a raw cross-language comparison measures this genre imbalance unless filtered by source type.
+- **Official press label:** `source_type` lives in `src/sources.py` per source (`official_press` vs `journalism`), not in the corpus database.
+- **Twin alignment:** 10,928 bilingual DE/IT release pairs are linked via metadata (`twin_article_id`).
+
+The full corpus database holds 113,823 articles and 30,917,114 words (including the 11,362 deferred Ladin articles). Stanza token-level Word Layer annotations for 79,293 Tageszeitung articles (30,275,813 tokens) are stored in `data/processed/didi_words.db`.
 
 ### Stanza-annotated articles from the KST project (checked 2026-11-07)
 
@@ -69,8 +75,9 @@ Luca's KST project annotated two German sources with Stanza (`tokenize,lemma,pos
 - Some Tageszeitung text has words glued together (`enttäuschtauf`), probably from the original scrape. DIDI's 131 articles have the same flaw.
 
 Known gaps:
+- **Italian journalism imbalance:** Italian is 97% press releases (11,355) and only ~350 journalism articles (Salto 328, RAI 21).
 - **Official press:** 22,302 releases harvested via Kontent.ai Delivery API and imported into the corpus database with bilingual pairing.
-- **Provenance checks** (Section 6): Wire bylines (ANSA, Adnkronos, APA, dpa, Italpress, Reuters) are detected by `src/collectors/extract.py`. Every article stores `local_provenance_score`.
+- **Provenance checks** (Section 6): Wire bylines (ANSA, Adnkronos, APA, dpa, Italpress, Reuters) are detected for collected articles; the press office collector sets 1.0 without computing it, and the local provenance score (Section 6) is still not computed anywhere.
 - **Source manifests:** centralized registry in `src/sources.py` and `src/collectors/sources.yaml`.
 
 ### Software

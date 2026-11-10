@@ -17,10 +17,12 @@ def _filters(
     subcodes: bool = True,
     language: Annotated[Optional[List[str]], Query()] = None,
     source: Annotated[Optional[List[str]], Query()] = None,
+    type: Annotated[Optional[List[str]], Query()] = None,
     coder: Optional[uuid.UUID] = None,
     status: Optional[Literal["active", "stale"]] = None,
+    q: Optional[str] = None,
 ) -> service.PassageFilters:
-    return service.PassageFilters(code, subcodes, language, source, coder, status)
+    return service.PassageFilters(code, subcodes, language, source, type, coder, status, query=q)
 
 
 Filters = Annotated[service.PassageFilters, Depends(_filters)]

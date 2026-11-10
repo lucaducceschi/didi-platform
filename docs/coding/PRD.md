@@ -249,3 +249,34 @@ These have working defaults, so they don't block Task 0.
 | Does each researcher need their own codebook, or do teams share one? | One codebook per project, so both work: put people in the same project or in different ones |
 | How will researchers try it before hosting is decided? | Luca runs it on one machine for a supervised session, which needs no hosting |
 | Should coders in a project see each other's work at all? | Yes, with **Mine** as the default. A lead-controlled blind mode can come with the agreement phase |
+
+## 16. Mixed-Methods Analytics: Qualitative Coding Meets Quantitative NLP (Task 6 / Stage 3)
+
+Integrate quantitative linguistic measures into the qualitative annotation workbench, connecting coded passages to corpus-level NLP metrics:
+
+### 16.1 Linguistic Profiler Dimensions
+1. **Moral & Emotional Framing:**
+   - Moral Foundations Theory (MFD 2.0, 5 foundations, virtue vs. vice hits per 1,000 words).
+   - NRC Emotions (Plutchik 8 discrete emotions + net sentiment).
+2. **Readability & Access:**
+   - Italian (`it`): Gulpease Index & Flesch-Vacca.
+   - German (`de`): Wiener Sachtextformel (WSTF 1) & Flesch-Amstad.
+   - Cross-linguistic: LIX Index.
+3. **Cognitive Construal (Concreteness vs. Abstraction):**
+   - Mean Concreteness Score ($1.0$–$5.0$ scale via psycholinguistic lemma ratings: Montefinese for `it`, Köper & Schulte im Walde for `de`).
+   - Abstract Nominalization Density (German `-heit`, `-keit`, `-schaft`, `-ung`, `-ismus`, `-tum`, `-tät` vs. Italian `-zione`, `-mento`, `-ismo`, `-ità`, `-enza`, `-anza`, `-tà` per 1,000 words).
+   - Entity Grounding Rate (Named Entities + Numbers per 1,000 words).
+4. **Syntactic Style & Text Complexity:**
+   - Biber's Nominal Ratio ($\frac{\text{NOUN} + \text{PROPN} + \text{ADP}}{\text{VERB} + \text{AUX} + \text{ADV}}$) as an indicator of bureaucratic / administrative prose (*Beamtendeutsch / burocratese*).
+   - Subordination Ratio (`SCONJ` density).
+   - Guiraud's Lexical Richness ($V / \sqrt{N}$).
+5. **Perspective & Authority:**
+   - Ingroup Pronouns (1st person plural: *wir/uns/unser*, *noi/ci/nostro*).
+   - Konjunktiv I (German reported speech distance, marked "unvalidated").
+
+### 16.2 Project Analysis Tab (`/projects/:id/analysis`)
+- Project KPI cards: Total articles, word tokens, coded passages, active coders, language & source type distribution.
+- Code Measures Matrix: Table of all project codes showing passage count, word count, net sentiment, top moral foundation, readability, concreteness, and nominal ratio.
+- Code Deep Dive & Distinctive Keyness (Dunning $G^2$): Statistically distinctive lemmas for each code.
+- Click-to-Evidence: Clicking any metric or lemma filters contributing passages with target words highlighted.
+

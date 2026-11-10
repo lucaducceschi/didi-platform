@@ -77,3 +77,20 @@ SOURCE_REGISTRY: Dict[str, SourceDefinition] = {
 
 SOURCE_LABELS: Dict[str, str] = {s.id: s.name for s in SOURCE_REGISTRY.values()}
 
+SOURCE_TYPE_LABELS: Dict[str, str] = {
+    "journalism": "Journalism",
+    "official_press": "Official press",
+}
+
+
+def get_source_type(source_id: str) -> str:
+    """Return 'journalism' or 'official_press' for a source. Defaults to 'journalism'."""
+    src = SOURCE_REGISTRY.get(source_id)
+    return src.source_type if src else "journalism"
+
+
+def get_sources_for_type(source_type: str) -> list[str]:
+    """Return list of source IDs matching given source_type."""
+    return [s.id for s in SOURCE_REGISTRY.values() if s.source_type == source_type]
+
+

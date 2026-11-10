@@ -36,6 +36,9 @@ def test_filters_by_code_coder_variety_source_and_status(world):
     assert {item["article_id"] for item in passages(world.coder, world, coder=str(world.ids["coder"]))["results"]} == {"fx_de_1", "fx_markup"}
     assert [item["article_id"] for item in passages(world.coder, world, language="it")["results"]] == ["fx_it_1"]
     assert len(passages(world.coder, world, source="salto")["results"]) == 3
+    assert len(passages(world.coder, world, type="journalism")["results"]) == 3
+    assert len(passages(world.coder, world, type="official_press")["results"]) == 0
+    assert passages(world.coder, world)["results"][0]["source_type"] == "journalism"
     assert passages(world.coder, world, status="stale")["total"] == 0
 
 

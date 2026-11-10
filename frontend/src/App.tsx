@@ -4,6 +4,8 @@ import { ErrorMessage } from './components/Message'
 import { ThemeToggle } from './components/ThemeToggle'
 import { AccountPage } from './pages/AccountPage'
 import { ArticlePage } from './pages/ArticlePage'
+import { CorpusAnalyticsPage } from './pages/CorpusAnalyticsPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProjectPage } from './pages/ProjectPage'
 import { ProjectsPage } from './pages/ProjectsPage'
@@ -20,8 +22,10 @@ export function App() {
           <Link to="/" className="app-title">DIDI Platform</Link>
           {user && (
             <nav aria-label="Main">
+              <NavLink to="/" end>Dashboard</NavLink>
               <NavLink to="/projects">Projects</NavLink>
               <NavLink to="/search">Corpus search</NavLink>
+              <NavLink to="/analytics">Macro analytics</NavLink>
               {user.is_admin && <NavLink to="/users">Users</NavLink>}
             </nav>
           )}
@@ -40,10 +44,11 @@ export function App() {
           </>
         ) : (
           <Routes>
-            <Route path="/" element={<Navigate to="/projects" replace />} />
+            <Route path="/" element={<DashboardPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId/*" element={<ProjectPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/analytics" element={<CorpusAnalyticsPage />} />
             <Route path="/articles/:id" element={<ArticlePage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/users" element={user.is_admin ? <UsersPage /> : <Navigate to="/projects" replace />} />

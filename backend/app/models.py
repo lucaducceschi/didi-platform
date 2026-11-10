@@ -132,3 +132,24 @@ class ActivityLog(Base):
     target: Mapped[str] = mapped_column(Text, default="")
     details: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     user: Mapped[Optional[User]] = relationship(lazy="selectin")
+
+
+class SavedCorpusSelection(Base):
+    __tablename__ = "saved_corpus_selections"
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id"))
+    name: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text, default="")
+    query_definition: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    article_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=utcnow)
+    user: Mapped[User] = relationship(lazy="selectin")
+
+
+class SavedSelectionMember(Base):
+    __tablename__ = "saved_selection_members"
+    selection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("saved_corpus_selections.id"), primary_key=True)
+    article_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    added_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=utcnow)

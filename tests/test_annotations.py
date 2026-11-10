@@ -117,7 +117,7 @@ def test_exports_include_everything_with_exact_text(world, fixture_records):
     assert row["coder_username"] == "coder" and row["code_path"] == "Autonomy > Finanzen"
     assert row["quote"] == text[0:9] and row["memo"] == "Ein Memo, mit Komma"
     assert (row["start_pos"], row["end_pos"], row["status"]) == ("0", "9", "active")
-    assert row["language"] == "de" and row["project"] == "Autonomy"
+    assert row["language"] == "de" and row["project"] == "Autonomy" and row["source_type"] == "journalism"
 
     codes = {code["name"]: code for code in _read_csv(world.lead.get(f"{world.url}/exports/codes.csv"))}
     assert codes["Finanzen"]["code_path"] == "Autonomy > Finanzen"

@@ -78,7 +78,8 @@ LANGUAGES: Dict[str, LanguageDefinition] = {
         code="it",
         label="Italian (it)",
         active=True,
-        quotation_marks=[("«", "»"), ('"', '"')],
+        # Salto's Italian articles quote with “…” and „…“, not «…» (checked 2026-11-10).
+        quotation_marks=[("«", "»"), ("“", "”"), ("„", "“"), ('"', '"')],
         ingroup_pronouns=["noi", "ci", "nostro", "nostra", "nostri", "nostre"],
         available_measures=[
             "mfd", "nrc", "sentiment", "ingroup_pronouns", "keyness"

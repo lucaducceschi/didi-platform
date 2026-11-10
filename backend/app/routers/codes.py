@@ -60,3 +60,12 @@ def merge(code_id: uuid.UUID, body: MergeRequest, access: CodebookLeadAccess, db
     )
     db.commit()
     return _with_counts(db, access.project.id, target)
+
+
+@router.get("/inter-coder-agreement")
+def inter_coder_agreement(access: ReadAccess, db: Db):
+    """Calculate inter-coder reliability metrics (Cohen's Kappa, confusion matrix, disagreements)."""
+    from backend.app.services.agreement import get_inter_coder_agreement
+    return get_inter_coder_agreement(db, access.project.id)
+    db.commit()
+    return _with_counts(db, access.project.id, target)

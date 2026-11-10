@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Set
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from src.languages import get_active_language_codes
+from src.sources import SOURCE_TYPE_LABELS, get_source_type
 from src.ui.data_service import LANGUAGE_LABELS, SOURCE_LABELS, DataService
 
 from backend.app.errors import not_found
@@ -23,8 +24,10 @@ class PassageFilters:
     include_subcodes: bool = True
     languages: Optional[List[str]] = None
     sources: Optional[List[str]] = None
+    types: Optional[List[str]] = None
     coder_id: Optional[uuid.UUID] = None
     status: Optional[str] = None
+    query: Optional[str] = None
 
 
 def _wanted_codes(codes: Dict[uuid.UUID, Code], filters: PassageFilters) -> Optional[Set[uuid.UUID]]:
@@ -59,9 +62,15 @@ def _context(text: Optional[str], annotation: Annotation) -> tuple:
 def _match(db: Session, corpus: DataService, project_id: uuid.UUID, filters: PassageFilters) -> dict:
     """Apply the filters in one pass. Each count ignores its own filter, so it shows what choosing another value gives."""
     rows = db.execute(
-        select(Annotation.id, Annotation.article_id, Annotation.user_id, Annotation.code_id, Annotation.status, Annotation.start_pos).where(
-            Annotation.project_id == project_id
-        )
+        select(
+            Annotation.id,
+            Annotation.article_id,
+            Annotation.user_id,
+            Annotation.code_id,
+            Annotation.status,
+            Annotation.start_pos,
+            Annotation.quote,
+        ).where(Annotation.project_id == project_id)
     ).all()
     codes = {code.id: code for code in db.scalars(select(Code).where(Code.project_id == project_id))}
     wanted = _wanted_codes(codes, filters)
@@ -74,10 +83,12 @@ def _match(db: Session, corpus: DataService, project_id: uuid.UUID, filters: Pas
         "code": lambda row, item: wanted is None or row.code_id in wanted,
         "language": lambda row, item: not filters.languages or (item is not None and item["language"] in filters.languages),
         "source": lambda row, item: not filters.sources or (item is not None and item["source"] in filters.sources),
+        "source_type": lambda row, item: not filters.types or (item is not None and get_source_type(item["source"]) in filters.types),
         "coder": lambda row, item: filters.coder_id is None or row.user_id == filters.coder_id,
         "status": lambda row, item: not filters.status or row.status == filters.status,
+        "query": lambda row, item: not filters.query or (filters.query.lower() in (row.quote or "").lower()),
     }
-    matched, direct, languages, sources, coders = [], Counter(), Counter(), Counter(), Counter()
+    matched, direct, languages, sources, source_types, coders = [], Counter(), Counter(), Counter(), Counter(), Counter()
     for row in rows:
         item = metadata.get(row.article_id)
         # Passages on articles with unconfigured languages are hidden
@@ -92,6 +103,8 @@ def _match(db: Session, corpus: DataService, project_id: uuid.UUID, filters: Pas
             languages[item["language"]] += 1
         if item is not None and not set(failed) - {"source"}:
             sources[item["source"]] += 1
+        if item is not None and not set(failed) - {"source_type"}:
+            source_types[get_source_type(item["source"])] += 1
         if not set(failed) - {"coder"}:
             coders[row.user_id] += 1
 
@@ -107,6 +120,7 @@ def _match(db: Session, corpus: DataService, project_id: uuid.UUID, filters: Pas
         "direct": direct,
         "languages": languages,
         "sources": sources,
+        "source_types": source_types,
         "coders": coders,
     }
 
@@ -153,6 +167,7 @@ def find_passages(
             "article_title": item["title"] if item else annotation.article_id,
             "publish_date": item["publish_date"][:10] if item else None,
             "source_label": SOURCE_LABELS.get(item["source"], item["source"]) if item else None,
+            "source_type": get_source_type(item["source"]) if item else None,
             "language": item["language"] if item else None,
             "language_label": LANGUAGE_LABELS.get(item["language"], item["language"]) if item else None,
             "code_id": annotation.code_id,
@@ -177,6 +192,7 @@ def find_passages(
         "codes": _code_counts(codes, found["direct"]),
         "languages": [{"id": key, "label": LANGUAGE_LABELS.get(key, key), "count": count} for key, count in sorted(found["languages"].items())],
         "sources": [{"id": key, "label": SOURCE_LABELS.get(key, key), "count": count} for key, count in sorted(found["sources"].items())],
+        "source_types": [{"id": key, "label": SOURCE_TYPE_LABELS.get(key, key), "count": count} for key, count in sorted(found["source_types"].items())],
         "coders": sorted(
             ({"user": users[key], "count": count} for key, count in found["coders"].items()),
             key=lambda entry: entry["user"].display_name.lower(),

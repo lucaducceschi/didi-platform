@@ -4,6 +4,7 @@ import { ErrorMessage } from '../components/Message'
 import { useApi } from '../useApi'
 import { ActivityTab } from './project/ActivityTab'
 import { AddArticlesPage } from './project/AddArticlesPage'
+import { AnalysisTab } from './project/AnalysisTab'
 import { LibraryTab } from './project/LibraryTab'
 import { PassagesTab } from './project/PassagesTab'
 import { ReaderPage } from './project/ReaderPage'
@@ -30,6 +31,7 @@ export function ProjectPage() {
         <NavLink to={`${base}/articles`} end={false}>Articles</NavLink>
         <NavLink to={`${base}/passages`}>Passages</NavLink>
         <NavLink to={`${base}/codebook`}>Codebook</NavLink>
+        <NavLink to={`${base}/analysis`}>Analysis</NavLink>
         <NavLink to={`${base}/members`}>Members</NavLink>
         <NavLink to={`${base}/activity`}>Activity</NavLink>
         {project.can_manage && <NavLink to={`${base}/settings`}>Settings</NavLink>}
@@ -45,6 +47,7 @@ export function ProjectPage() {
         <Route path="articles/:articleId" element={<ReaderPage project={project} />} />
         <Route path="passages" element={<PassagesTab project={project} />} />
         <Route path="codebook" element={<CodebookTab project={project} />} />
+        <Route path="analysis" element={<AnalysisTab project={project} />} />
         <Route path="members" element={<MembersTab project={project} onChanged={reload} />} />
         <Route path="activity" element={<ActivityTab project={project} />} />
         <Route path="settings" element={project.can_manage ? <SettingsTab key={project.revision} project={project} onChanged={reload} /> : <Navigate to={`${base}/codebook`} replace />} />

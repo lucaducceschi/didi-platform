@@ -17,6 +17,9 @@ ENV/
 data/raw/
 data/backups/
 data/processed/*.db
+data/processed/*.jsonl.gz
+# Verbatim article text for quote validation (scripts/validate_quotes.py)
+data/processed/quotes_validation_sample.csv
 # Kept local since 2026-11-09, review by 2027-01-09 (AGENTS.md, section 2)
 data/processed/didi_corpus.db
 data/processed/didi_words.db
@@ -42,3 +45,5 @@ frontend/dist/
 frontend/*.tsbuildinfo
 frontend/test-results/
 frontend/playwright-report/
+# Manuscript: private GitLab full-data branch only, never origin (decided 2026-11-10)
+paper/

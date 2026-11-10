@@ -1,0 +1,87 @@
+[
+  {
+    "id": "beta_de_1",
+    "source": "tageszeitung",
+    "language": "de",
+    "url": "https://www.tageszeitung.it/2021/04/15/autonomiestatut-reform",
+    "title": "Verhandlungen über das neue Autonomiestatut im Landtag",
+    "publish_date": "2021-04-15T09:00:00+00:00",
+    "author": "Christoph Kofler",
+    "category": "Politik",
+    "breadcrumbs_json": "[\"Politik\", \"Südtirol\"]",
+    "full_text": "Die Reform des Autonomiestatuts steht erneut im Zentrum der Verhandlungen. Der Landeshauptmann betonte die Notwendigkeit von mehr Zuständigkeiten für das Land Südtirol.",
+    "word_count": 27,
+    "metadata_json": "{\"source_type\": \"journalism\"}"
+  },
+  {
+    "id": "beta_de_2",
+    "source": "tageszeitung",
+    "language": "de",
+    "url": "https://www.tageszeitung.it/2023/10/20/svp-parteitag-analyse",
+    "title": "SVP-Parteitag stimmt über Koalitionsabkommen ab",
+    "publish_date": "2023-10-20T14:30:00+00:00",
+    "author": "Redaktion",
+    "category": "Politik",
+    "breadcrumbs_json": "[\"Politik\"]",
+    "full_text": "Auf dem außerordentlichen SVP-Parteitag diskutierten die Delegierten über die künftige Regierungskoalition und den Schutz der Minderheiten.",
+    "word_count": 20,
+    "metadata_json": "{\"source_type\": \"journalism\"}"
+  },
+  {
+    "id": "beta_it_1",
+    "source": "salto",
+    "language": "it",
+    "url": "https://salto.bz/it/article/20220610/il-futuro-dellautonomia",
+    "title": "Il futuro dell'autonomia e la scuola bilingue",
+    "publish_date": "2022-06-10T11:00:00+00:00",
+    "author": "Marco Rossi",
+    "category": "Società",
+    "breadcrumbs_json": "[\"Società\", \"Politica\"]",
+    "full_text": "Il dibattito sul ripristino dell'autonomia integrale coinvolge tutte le forze politiche. La questione dell'istruzione e del bilinguismo resta prioritaria.",
+    "word_count": 22,
+    "metadata_json": "{\"source_type\": \"journalism\"}"
+  },
+  {
+    "id": "beta_it_2",
+    "source": "provinz_news",
+    "language": "it",
+    "url": "https://news.provincia.bz.it/it/news/comunicato-giunta-un-autonomia-forte",
+    "title": "Giunta provinciale: un'autonomia forte a tutela delle minoranze",
+    "publish_date": "2024-02-18T16:15:00+00:00",
+    "author": "Ufficio Stampa",
+    "category": "Istituzioni",
+    "breadcrumbs_json": "[\"Comunicati Stampa\"]",
+    "full_text": "La Giunta ha ribadito che un'autonomia speciale solida garantisce la pacifica convivenza tra i gruppi linguistici tedesco, italiano e ladino.",
+    "word_count": 22,
+    "metadata_json": "{\"source_type\": \"official_press\"}"
+  },
+  {
+    "id": "beta_de_press",
+    "source": "provinz_news",
+    "language": "de",
+    "url": "https://news.provinz.bz.it/de/news/landesregierung-investitionen-transitverkehr",
+    "title": "Landesregierung beschließt Maßnahmen zum Transitverkehr am Brenner",
+    "publish_date": "2025-01-12T10:00:00+00:00",
+    "author": "Landespresseamt",
+    "category": "Verkehr",
+    "breadcrumbs_json": "[\"Pressemitteilungen\"]",
+    "full_text": "Um die Belastung durch den Transitverkehr zu reduzieren, setzt das Land auf Verlagerung auf die Schiene und nachhaltige Mobilität.",
+    "word_count": 21,
+    "metadata_json": "{\"source_type\": \"official_press\"}"
+  },
+  {
+    "id": "beta_lld_1",
+    "source": "la_usc",
+    "language": "lld_gherd",
+    "url": "https://www.lausc.it/gherdeina/2024-05-02-autonomia-y-scola",
+    "title": "L'autonomia y la scola ladina",
+    "publish_date": "2024-05-02T08:00:00+00:00",
+    "author": "Redazion La Usc",
+    "category": "Cultura",
+    "breadcrumbs_json": "[\"Gherdëina\", \"Cultura\"]",
+    "full_text": "Tl dëne d'ancuei resta l'autonomia l fundament per la defendura dl lingaz y dla cultura ladina te nostes valedes.",
+    "word_count": 21,
+    "metadata_json": "{\"source_type\": \"journalism\"}"
+  }
+]
+

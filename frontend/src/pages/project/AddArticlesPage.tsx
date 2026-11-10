@@ -16,6 +16,7 @@ export function AddArticlesPage({ project }: { project: Project }) {
     q: params.get('q') ?? '',
     sources: params.getAll('source'),
     languages: params.getAll('language'),
+    types: params.getAll('type'),
     page: Math.max(1, Number(params.get('page')) || 1),
   }
   const [draft, setDraft] = useState(filters.q)
@@ -34,6 +35,7 @@ export function AddArticlesPage({ project }: { project: Project }) {
     if (merged.q.trim()) updated.set('q', merged.q.trim())
     merged.sources.forEach((source) => updated.append('source', source))
     merged.languages.forEach((language) => updated.append('language', language))
+    merged.types?.forEach((type) => updated.append('type', type))
     if (merged.page > 1) updated.set('page', String(merged.page))
     setParams(updated)
   }
@@ -65,7 +67,7 @@ export function AddArticlesPage({ project }: { project: Project }) {
   const addAll = () => {
     setConfirmAll(false)
     void run(async () => {
-      const result = await addArticlesFromSearch(project.id, { q: filters.q, source: filters.sources, language: filters.languages })
+      const result = await addArticlesFromSearch(project.id, { q: filters.q, source: filters.sources, language: filters.languages, type: filters.types })
       setNotice(describe(result.added, result.already_present))
       setSelected(new Set())
       search.reload()
@@ -76,6 +78,19 @@ export function AddArticlesPage({ project }: { project: Project }) {
   const newMatches = data ? data.total - data.in_project_total : 0
   const lastPage = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
 
+  const selectableOnPage = (data?.results ?? []).filter((a) => !a.in_project).map((a) => a.id)
+  const allPageSelected = selectableOnPage.length > 0 && selectableOnPage.every((id) => selected.has(id))
+  const togglePage = (checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      selectableOnPage.forEach((id) => {
+        if (checked) next.add(id)
+        else next.delete(id)
+      })
+      return next
+    })
+  }
+
   return (
     <div className="add-layout">
       <aside className="filters" aria-label="Filters">
@@ -83,6 +98,9 @@ export function AddArticlesPage({ project }: { project: Project }) {
           <>
             <FacetGroup legend="Language variety" name="language" options={summary.data.languages} selected={filters.languages} onChange={(languages) => update({ languages })} />
             <FacetGroup legend="Source" name="source" options={summary.data.sources} selected={filters.sources} onChange={(sources) => update({ sources })} />
+            {summary.data.source_types && summary.data.source_types.length > 0 && (
+              <FacetGroup legend="Type" name="type" options={summary.data.source_types} selected={filters.types ?? []} onChange={(types) => update({ types })} />
+            )}
           </>
         )}
       </aside>
@@ -109,6 +127,16 @@ export function AddArticlesPage({ project }: { project: Project }) {
 
         {data && !search.error && (
           <div className="add-bar">
+            {selectableOnPage.length > 0 && (
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={allPageSelected}
+                  onChange={(e) => togglePage(e.target.checked)}
+                />
+                <span style={{ fontWeight: 600 }}>Select page ({selectableOnPage.length})</span>
+              </label>
+            )}
             <p className="result-count" aria-live="polite">
               {data.total.toLocaleString()} {data.total === 1 ? 'match' : 'matches'}, {data.in_project_total.toLocaleString()} already in the project
             </p>
@@ -131,7 +159,10 @@ export function AddArticlesPage({ project }: { project: Project }) {
               />
               <div>
                 <h2>{article.title}{article.in_project && <span className="tag">In project</span>}</h2>
-                <p className="result-meta">{article.publish_date} · {article.source_label} · {article.language_label} · {article.word_count.toLocaleString()} words</p>
+                <p className="result-meta">
+                  {article.source_type === 'official_press' && <span className="tag">Official press</span>}
+                  {article.publish_date} · {article.source_label} · {article.language_label} · {article.word_count.toLocaleString()} words
+                </p>
                 <Snippet parts={article.snippet} />
               </div>
             </li>

@@ -7,6 +7,7 @@ export interface ArticleSummary {
   id: string
   source: string
   source_label: string
+  source_type?: string
   language: string
   language_label: string
   url: string
@@ -18,18 +19,40 @@ export interface ArticleSummary {
   snippet: SnippetPart[]
 }
 
+export interface ExpansionTerm {
+  term: string
+  language?: string
+  category: string
+}
+
+export interface QueryInterpretation {
+  original_query: string
+  normalized_query: string
+  search_mode: 'exact' | 'word_family' | 'concept'
+  effective_fts: string
+  expansion_terms: ExpansionTerm[]
+  expansion_language?: string | null
+  expansion_category?: string | null
+  warnings: string[]
+  total_results: number
+  active_filters: Record<string, unknown>
+}
+
 export interface SearchResponse {
   total: number
   page: number
   page_size: number
   results: ArticleSummary[]
   hidden_articles?: number
+  query_interpretation?: QueryInterpretation | null
 }
 
 export interface ArticleDetail {
   id: string
   source: string
   source_label: string
+  source_type?: string
+  twin_article_id?: string | null
   language: string
   language_label: string
   url: string
@@ -43,6 +66,10 @@ export interface ArticleDetail {
     net_sentiment: number | null
     moral_density: number | null
     emotional_density: number | null
+    readability_score?: number | null
+    readability_metric?: string | null
+    readability_grade?: string | null
+    lix?: number | null
   }
 }
 
@@ -59,13 +86,50 @@ export interface CorpusSummary {
   max_date: string
   sources: Facet[]
   languages: Facet[]
+  source_types?: Facet[]
 }
 
 export interface SearchFilters {
   q: string
+  mode?: 'exact' | 'word_family' | 'concept'
   sources: string[]
   languages: string[]
+  types?: string[]
+  min_date?: string
+  max_date?: string
   page: number
+}
+
+export interface ConcordanceLine {
+  article_id: string
+  title: string
+  source: string
+  source_label: string
+  source_type: string
+  language: string
+  language_label: string
+  publish_date: string
+  start_char: number
+  end_char: number
+  left_context: string
+  keyword: string
+  right_context: string
+}
+
+export interface ConcordanceResponse {
+  total_lines: number
+  total_articles: number
+  page: number
+  page_size: number
+  items: ConcordanceLine[]
+}
+
+export interface SearchDistribution {
+  total: number
+  by_language: Record<string, number>
+  by_source: Record<string, number>
+  by_source_type: Record<string, number>
+  by_year: Record<string, number>
 }
 
 export class ApiError extends Error {
@@ -103,17 +167,53 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
 
 const getJson = <T,>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal)
 
-export function searchPath({ q, sources, languages, page }: SearchFilters): string {
+export function searchPath({ q, mode, sources, languages, types, min_date, max_date, page }: SearchFilters): string {
   const params = new URLSearchParams()
   if (q.trim()) params.set('q', q.trim())
+  if (mode && mode !== 'concept') params.set('mode', mode)
   sources.forEach((source) => params.append('source', source))
   languages.forEach((language) => params.append('language', language))
+  types?.forEach((type) => params.append('type', type))
+  if (min_date) params.set('min_date', min_date)
+  if (max_date) params.set('max_date', max_date)
   params.set('page', String(page))
   return `/api/articles/search?${params}`
 }
 
 export const searchArticles = (filters: SearchFilters, signal?: AbortSignal) =>
   getJson<SearchResponse>(searchPath(filters), signal)
+
+export function concordancePath({ q, mode, sources, languages, types, min_date, max_date, page, page_size = 50 }: SearchFilters & { page_size?: number }): string {
+  const params = new URLSearchParams()
+  if (q.trim()) params.set('q', q.trim())
+  if (mode) params.set('mode', mode)
+  sources.forEach((source) => params.append('source', source))
+  languages.forEach((language) => params.append('language', language))
+  types?.forEach((type) => params.append('type', type))
+  if (min_date) params.set('min_date', min_date)
+  if (max_date) params.set('max_date', max_date)
+  params.set('page', String(page))
+  params.set('page_size', String(page_size))
+  return `/api/articles/concordance?${params}`
+}
+
+export const getConcordance = (filters: SearchFilters & { page_size?: number }, signal?: AbortSignal) =>
+  getJson<ConcordanceResponse>(concordancePath(filters), signal)
+
+export function distributionPath({ q, mode, sources, languages, types, min_date, max_date }: Omit<SearchFilters, 'page'>): string {
+  const params = new URLSearchParams()
+  if (q.trim()) params.set('q', q.trim())
+  if (mode) params.set('mode', mode)
+  sources.forEach((source) => params.append('source', source))
+  languages.forEach((language) => params.append('language', language))
+  types?.forEach((type) => params.append('type', type))
+  if (min_date) params.set('min_date', min_date)
+  if (max_date) params.set('max_date', max_date)
+  return `/api/articles/distribution?${params}`
+}
+
+export const getSearchDistribution = (filters: Omit<SearchFilters, 'page'>, signal?: AbortSignal) =>
+  getJson<SearchDistribution>(distributionPath(filters), signal)
 
 export const getArticle = (id: string, signal?: AbortSignal) =>
   getJson<ArticleDetail>(`/api/articles/${encodeURIComponent(id)}`, signal)
@@ -234,6 +334,158 @@ export interface ActivityEntry {
 export const listActivity = (projectId: string, signal?: AbortSignal) =>
   getJson<ActivityEntry[]>(`/api/projects/${projectId}/activity`, signal)
 
+export interface SavedSelection {
+  id: string
+  project_id: string
+  name: string
+  description: string
+  query_definition: Record<string, any>
+  article_count: number
+  created_by: string
+  created_at: string
+  updated_at: string
+  user?: UserBrief
+}
+
+export interface SavedSelectionDetail extends SavedSelection {
+  article_ids: string[]
+}
+
+export const listSelections = (projectId: string, signal?: AbortSignal) =>
+  getJson<SavedSelection[]>(`/api/projects/${projectId}/selections`, signal)
+
+export const getSelection = (projectId: string, selectionId: string, signal?: AbortSignal) =>
+  getJson<SavedSelectionDetail>(`/api/projects/${projectId}/selections/${selectionId}`, signal)
+
+export const createSelection = (
+  projectId: string,
+  body: { name: string; description?: string; query_definition?: Record<string, any>; article_ids?: string[] },
+) => request<SavedSelection>('POST', `/api/projects/${projectId}/selections`, body)
+
+export const deleteSelection = (projectId: string, selectionId: string) =>
+  request<void>('DELETE', `/api/projects/${projectId}/selections/${selectionId}`)
+
+export const refreshSelection = (projectId: string, selectionId: string) =>
+  request<SavedSelectionDetail>('POST', `/api/projects/${projectId}/selections/${selectionId}/refresh`)
+
+export interface KeynessTerm {
+  term: string
+  target_count: number
+  ref_count: number
+  target_per_1k: number
+  ref_per_1k: number
+  g2: number
+  direction: string
+}
+
+export interface SelectionTimelinePoint {
+  period: string
+  count: number
+  sentiment: number
+  moral_density: number
+}
+
+export interface SelectionProfileData {
+  id: string
+  label: string
+  article_count: number
+  total_words: number
+  dominant_language: string
+  net_sentiment: number
+  moral_density: number
+  foundations: {
+    care: number
+    fairness: number
+    loyalty: number
+    authority: number
+    sanctity: number
+  }
+  emotions: Record<string, number>
+  readability: {
+    score: number
+    metric: string
+    grade: string
+  }
+  nominal_ratio: number
+  concreteness: number
+  ingroup_pronouns_rate: number
+  languages: Record<string, number>
+  sources: Record<string, number>
+  source_types: Record<string, number>
+  timeline: SelectionTimelinePoint[]
+}
+
+export interface SelectionCompareResponse {
+  comparison_type: 'selection_vs_selection' | 'selection_vs_baseline' | 'partition'
+  partition_label: string | null
+  profile_a: SelectionProfileData
+  profile_b: SelectionProfileData
+  divergence: {
+    mfdi: number
+    moral_divergence: any
+    emotion_jsd: number
+    emotion_divergence: any
+  }
+  distinctive_terms_a: KeynessTerm[]
+  distinctive_terms_b: KeynessTerm[]
+}
+
+export const compareSelections = (
+  projectId: string,
+  body: {
+    selection_a_id: string
+    selection_b_id?: string | null
+    partition_by?: string | null
+  },
+  signal?: AbortSignal
+) => request<SelectionCompareResponse>('POST', `/api/projects/${projectId}/selections/compare`, body, signal)
+
+export interface CoderPairAgreement {
+  coder_1: UserBrief
+  coder_2: UserBrief
+  overlapping_segments: number
+  agreed_segments: number
+  observed_agreement: number
+  chance_agreement: number
+  cohens_kappa: number
+  interpretation: string
+}
+
+export interface CodeConfusionItem {
+  code_1: { id: string; name: string; color: string }
+  code_2: { id: string; name: string; color: string }
+  count: number
+}
+
+export interface DisagreementItem {
+  article_id: string
+  start_pos: number
+  end_pos: number
+  quote: string
+  coder_1: string
+  code_1_name: string
+  code_1_color: string
+  coder_2: string
+  code_2_name: string
+  code_2_color: string
+  iou: number
+}
+
+export interface InterCoderAgreementResponse {
+  total_coders: number
+  total_overlapping_segments: number
+  total_agreed_segments: number
+  global_observed_agreement: number
+  global_kappa: number
+  global_interpretation: string
+  pairs: CoderPairAgreement[]
+  confusion_matrix: CodeConfusionItem[]
+  disagreements: DisagreementItem[]
+}
+
+export const getInterCoderAgreement = (projectId: string, signal?: AbortSignal) =>
+  getJson<InterCoderAgreementResponse>(`/api/projects/${projectId}/codes/inter-coder-agreement`, signal)
+
 export interface LibraryCoder {
   user: UserBrief
   status: 'in_progress' | 'done' | null
@@ -248,6 +500,7 @@ export interface LibraryArticle {
   in_corpus: boolean
   title: string
   source_label: string | null
+  source_type?: string | null
   language_label: string | null
   publish_date: string | null
   word_count: number | null
@@ -264,20 +517,23 @@ export interface LibraryResponse {
   results: LibraryArticle[]
   languages: Facet[]
   sources: Facet[]
+  source_types: Facet[]
   hidden_articles?: number
 }
 
 export interface LibraryFilters {
   languages: string[]
   sources: string[]
+  types: string[]
   status: MyStatus | ''
   page: number
 }
 
-export function libraryPath(projectId: string, { languages, sources, status, page }: LibraryFilters): string {
+export function libraryPath(projectId: string, { languages, sources, types, status, page }: LibraryFilters): string {
   const params = new URLSearchParams()
   languages.forEach((language) => params.append('language', language))
   sources.forEach((source) => params.append('source', source))
+  types.forEach((type) => params.append('type', type))
   if (status) params.set('status', status)
   params.set('page', String(page))
   return `/api/projects/${projectId}/library?${params}`
@@ -290,6 +546,7 @@ export interface ProjectSearchResult {
   id: string
   title: string
   source_label: string
+  source_type?: string
   language_label: string
   publish_date: string
   word_count: number
@@ -326,7 +583,7 @@ export const getArticleProjects = (articleId: string, signal?: AbortSignal) =>
   getJson<ArticleProject[]>(`/api/articles/${encodeURIComponent(articleId)}/projects`, signal)
 export const addArticles = (projectId: string, article_ids: string[]) =>
   request<ArticlesAdded>('POST', `/api/projects/${projectId}/articles`, { article_ids })
-export const addArticlesFromSearch = (projectId: string, body: { q: string; source: string[]; language: string[] }) =>
+export const addArticlesFromSearch = (projectId: string, body: { q: string; source: string[]; language: string[]; type?: string[] }) =>
   request<ArticlesAdded>('POST', `/api/projects/${projectId}/articles/from-search`, body)
 
 export const removeArticle = (projectId: string, articleId: string) =>
@@ -341,6 +598,7 @@ export interface Passage {
   article_title: string
   publish_date: string | null
   source_label: string | null
+  source_type?: string | null
   language: string | null
   language_label: string | null
   code_id: string
@@ -363,6 +621,7 @@ export interface PassagesResponse {
   codes: { id: string; direct: number; total: number }[]
   languages: { id: string; label: string; count: number }[]
   sources: { id: string; label: string; count: number }[]
+  source_types: { id: string; label: string; count: number }[]
   coders: { user: UserBrief; count: number }[]
   hidden_passages?: number
 }
@@ -373,6 +632,20 @@ export const passagesCsvPath = (projectId: string, query: URLSearchParams) => `/
 
 export const getProjectArticle = (projectId: string, articleId: string, signal?: AbortSignal) =>
   getJson<ArticleDetail>(`/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}`, signal)
+
+export interface DictionarySpan {
+  start: number
+  end: number
+  form: string
+  lemma: string
+  kind: 'moral' | 'ingroup' | 'konjunktiv_i'
+  category?: string
+  label: string
+  color: string
+}
+
+export const getArticleDictionarySpans = (projectId: string, articleId: string, signal?: AbortSignal) =>
+  getJson<DictionarySpan[]>(`/api/projects/${projectId}/articles/${encodeURIComponent(articleId)}/dictionary-spans`, signal)
 
 export interface Annotation {
   id: string
@@ -417,3 +690,371 @@ export const sendHeartbeat = (projectId: string, articleId: string, signal?: Abo
 export const leaveArticle = (projectId: string, articleId: string) => {
   pendingLeave = fetch(presencePath(projectId, articleId), { method: 'DELETE', keepalive: true }).catch(() => {})
 }
+
+export interface DistinctiveLemma {
+  lemma: string
+  target_count: number
+  reference_count: number
+  g2: number
+}
+
+export interface CodeMetrics {
+  code_id: string
+  code_name: string
+  code_color: string
+  passage_count: number
+  word_count: number
+  small_sample: boolean
+  dominant_language: string
+  sentiment: number
+  moral_density: number
+  top_moral_foundation: string
+  readability: {
+    metric: string
+    score: number
+    grade: string
+    lix: number
+  } | null
+  concreteness: {
+    score: number
+    label: string
+    abstract_density: number
+    entity_density: number
+  } | null
+  complexity: {
+    nominal_ratio: number
+    style_label: string
+    guiraud_richness: number
+    subordination_density: number
+  } | null
+  ingroup_pronouns: {
+    count: number
+    rate_per_1k: number
+  }
+  konjunktiv_i: {
+    count: number
+    rate_per_1k: number
+    unvalidated: boolean
+    available: boolean
+  }
+  distinctive_lemmas?: DistinctiveLemma[]
+}
+
+export interface ProjectAnalysisSummary {
+  project_id: string
+  project_name: string
+  summary: {
+    total_articles: number
+    total_words: number
+    total_passages: number
+    total_coders: number
+    total_coded_words: number
+    languages: Record<string, number>
+    source_types: Record<string, number>
+    sources: Record<string, number>
+  }
+  baseline: Record<string, unknown>
+  codes: CodeMetrics[]
+}
+
+export const getProjectAnalysis = (projectId: string, signal?: AbortSignal) =>
+  getJson<ProjectAnalysisSummary>(`/api/projects/${projectId}/analysis`, signal)
+
+export interface RadarLanguageData {
+  language: string
+  language_label: string
+  article_count: number
+  net_sentiment: number
+  moral_density: number
+  foundations: {
+    care: number
+    fairness: number
+    loyalty: number
+    authority: number
+    sanctity: number
+  }
+  emotions: {
+    anger: number
+    anticipation: number
+    disgust: number
+    fear: number
+    joy: number
+    sadness: number
+    surprise: number
+    trust: number
+  }
+}
+
+export interface PairwiseJsd {
+  jsd: number
+  primary_divergence_foundation: string
+  norm_vec_a?: Record<string, number>
+  norm_vec_b?: Record<string, number>
+  deltas?: Record<string, number>
+}
+
+export interface RadarAnalyticsResponse {
+  languages: RadarLanguageData[]
+  pairwise_jsd: Record<string, PairwiseJsd>
+}
+
+export interface TimelinePoint {
+  period: string
+  language: string
+  article_count: number
+  avg_sentiment: number
+  avg_moral_density: number
+  avg_word_count: number
+}
+
+export interface TimelineAnalyticsResponse {
+  series: TimelinePoint[]
+}
+
+export interface FocusEventItem {
+  id: string
+  date: string
+  title: string
+  description: string
+  category: string
+  default_window: number
+  coverage: Record<string, number>
+}
+
+export interface KeynessItem {
+  term: string
+  g2: number
+  target_per_1k: number
+  ref_per_1k: number
+}
+
+export interface ArticleMetricsDetail {
+  id: string
+  title: string
+  publish_date: string
+  source: string
+  source_label: string
+  source_type: string
+  source_type_label: string
+  language: string
+  language_label: string
+  word_count: number
+  net_sentiment: number
+  moral_density: number
+  top_moral_foundation: string
+  readability_metric: string | null
+  readability_score: number | null
+  readability_grade: string | null
+  nominal_ratio: number
+  concreteness_score: number
+}
+
+export interface ProjectProfileData {
+  article_count: number
+  total_words: number
+  dominant_language: string
+  net_sentiment: number
+  moral_density: number
+  foundations: {
+    care: number
+    fairness: number
+    loyalty: number
+    authority: number
+    sanctity: number
+  }
+  emotions: Record<string, number>
+  readability: {
+    score: number
+    metric: string
+    grade: string
+  }
+  nominal_ratio: number
+  concreteness: number
+  languages: Record<string, number>
+  source_types: Record<string, number>
+  sources: Record<string, number>
+}
+
+export interface CorpusBaselineData {
+  article_count: number
+  language: string
+  net_sentiment: number
+  moral_density: number
+  foundations: {
+    care: number
+    fairness: number
+    loyalty: number
+    authority: number
+    sanctity: number
+  }
+  emotions: Record<string, number>
+  readability: {
+    score: number
+    metric: string
+  }
+  nominal_ratio: number
+  concreteness: number
+}
+
+export interface ProjectCorpusComparisonResponse {
+  project_id: string
+  project_name: string
+  article_count: number
+  total_words: number
+  project_profile: ProjectProfileData | null
+  corpus_baseline: CorpusBaselineData | null
+  divergence: {
+    jsd: number
+    label: string
+    primary_divergence_foundation: string
+  } | null
+  distinctive_terms: KeynessItem[]
+  articles: ArticleMetricsDetail[]
+}
+
+export const getProjectCorpusComparison = (projectId: string, signal?: AbortSignal) =>
+  getJson<ProjectCorpusComparisonResponse>(`/api/projects/${projectId}/corpus-comparison`, signal)
+
+export interface GridRow {
+  id: string
+  label: string
+  total_passages: number
+  total_articles: number
+}
+
+export interface GridColumn {
+  id: string
+  name: string
+  color: string
+  total_passages: number
+}
+
+export interface ExampleQuote {
+  annotation_id: string
+  article_id: string
+  article_title: string
+  publish_date: string
+  quote: string
+}
+
+export interface GridCell {
+  passage_count: number
+  article_count: number
+  coder_count: number
+  measure_value: number | null
+  measure_label: string
+  word_count: number
+  small_sample: boolean
+  distinctive_lemmas: string[]
+  example_quotes: ExampleQuote[]
+}
+
+export interface ComparisonGridResponse {
+  project_id: string
+  project_name: string
+  row_by: string
+  measure: string
+  rows: GridRow[]
+  columns: GridColumn[]
+  cells: Record<string, GridCell>
+}
+
+export const getProjectComparisonGrid = (
+  projectId: string,
+  rowBy = 'language',
+  measure = 'count',
+  signal?: AbortSignal
+) =>
+  getJson<ComparisonGridResponse>(
+    `/api/projects/${projectId}/comparison-grid?row_by=${encodeURIComponent(rowBy)}&measure=${encodeURIComponent(measure)}`,
+    signal
+  )
+
+export interface FocusEventDetails {
+  event_date: string
+  window_days: number
+  pre_period: string
+  post_period: string
+  pre_count: number
+  post_count: number
+  pct_surge: number
+  pre_sentiment: number
+  post_sentiment: number
+  delta_sentiment: number
+  moral_divergence: PairwiseJsd
+  pre_moral: Record<string, number>
+  post_moral: Record<string, number>
+  keyness: KeynessItem[]
+}
+
+export interface AnalyticsFilters {
+  q?: string
+  sources?: string[]
+  languages?: string[]
+  min_date?: string
+  max_date?: string
+}
+
+function buildAnalyticsParams({ q, sources, languages, min_date, max_date }: AnalyticsFilters = {}): string {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (sources) sources.forEach((s) => params.append('source', s))
+  if (languages) languages.forEach((l) => params.append('language', l))
+  if (min_date) params.set('min_date', min_date)
+  if (max_date) params.set('max_date', max_date)
+  const qs = params.toString()
+  return qs ? `?${qs}` : ''
+}
+
+export const getRadarAnalytics = (filters?: AnalyticsFilters, signal?: AbortSignal) =>
+  getJson<RadarAnalyticsResponse>(`/api/analytics/radar${buildAnalyticsParams(filters)}`, signal)
+
+export const getTimelineAnalytics = (filters?: AnalyticsFilters, signal?: AbortSignal) =>
+  getJson<TimelineAnalyticsResponse>(`/api/analytics/timeline${buildAnalyticsParams(filters)}`, signal)
+
+export const getFocusEvents = (signal?: AbortSignal) =>
+  getJson<FocusEventItem[]>('/api/analytics/focus-events', signal)
+
+export const getFocusEventDetails = (eventDate: string, windowDays = 30, q = '', signal?: AbortSignal) => {
+  const params = new URLSearchParams({ window_days: String(windowDays) })
+  if (q) params.set('q', q)
+  return getJson<FocusEventDetails>(`/api/analytics/focus-events/${encodeURIComponent(eventDate)}?${params}`, signal)
+}
+
+export const getCrossLingualKeyness = (
+  targetLang = 'de',
+  refLang = 'it',
+  q = '',
+  sources?: string[],
+  topN = 15,
+  signal?: AbortSignal
+) => {
+  const params = new URLSearchParams({ target_lang: targetLang, ref_lang: refLang, top_n: String(topN) })
+  if (q) params.set('q', q)
+  if (sources) sources.forEach((s) => params.append('source', s))
+  return getJson<KeynessItem[]>(`/api/analytics/keyness?${params}`, signal)
+}
+
+export interface WordBubbleItem {
+  id: string
+  term: string
+  twin_term: string | null
+  category: string
+  category_color: string
+  count: number
+  salience: number
+  de_ratio: number
+  it_ratio: number
+  journalism_ratio: number
+  official_press_ratio: number
+  primary_moral: string
+  sentiment: number
+  collocates: string[]
+  sample_snippet: string
+  years: string[]
+  yearly_trend: number[]
+}
+
+export const getWordBubbles = (mode = 'focus', signal?: AbortSignal) =>
+  getJson<WordBubbleItem[]>(`/api/analytics/word-bubbles?mode=${encodeURIComponent(mode)}`, signal)
+

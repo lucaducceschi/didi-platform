@@ -140,6 +140,8 @@ test('the library shows counts per coder and filters by variety', async ({ page 
   await page.getByLabel('Variety').selectOption({ value: 'it' })
   await expect(page.getByText(/hidden by these filters/)).toBeVisible()
   await expect(page.locator('.library-list li')).not.toHaveCount(0)
+  await page.getByLabel('Type').selectOption({ value: 'journalism' })
+  await expect(page.locator('.library-list li')).not.toHaveCount(0)
   await page.getByLabel('My status').selectOption({ value: 'done' })
   await expect(page.getByText('No articles match these filters.')).toBeVisible()
 })

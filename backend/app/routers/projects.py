@@ -216,3 +216,74 @@ def export_annotations(access: ReadAccess, db: Db) -> Response:
 @router.get("/{project_id}/exports/codes.csv")
 def export_codes(access: ReadAccess, db: Db) -> Response:
     return _csv_response(exports.codes_csv(db, access.project.id), "didi_codes.csv")
+
+
+@router.get("/{project_id}/exports/code-measures.csv")
+def export_code_measures(access: ReadAccess, db: Db) -> Response:
+    content = exports.code_measures_csv(db, access.project)
+    return _csv_response(content, f"{access.project.name}_code_measures.csv")
+
+
+@router.get("/{project_id}/exports/passage-measures.csv")
+def export_passage_measures(access: ReadAccess, db: Db) -> Response:
+    content = exports.passage_measures_csv(db, get_corpus(), access.project)
+    return _csv_response(content, f"{access.project.name}_passage_measures.csv")
+
+
+@router.get("/{project_id}/exports/comparison-grid.csv")
+def export_comparison_grid(
+    access: ReadAccess,
+    db: Db,
+    row_by: str = "language",
+    measure: str = "count",
+) -> Response:
+    content = exports.comparison_grid_csv(db, access.project, row_by=row_by, measure=measure)
+    return _csv_response(content, f"{access.project.name}_comparison_grid_{row_by}_{measure}.csv")
+
+
+@router.get("/{project_id}/exports/manifest.json")
+def export_manifest_json(access: ReadAccess, db: Db) -> Response:
+    import json
+    data = exports.reproducibility_manifest(db, get_corpus(), access.project)
+    content = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+    return Response(
+        content,
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{access.project.name}_manifest.json"'},
+    )
+
+
+@router.get("/{project_id}/exports/manifest.md")
+def export_manifest_markdown(access: ReadAccess, db: Db) -> Response:
+    report = exports.reproducibility_report_markdown(db, get_corpus(), access.project)
+    return Response(
+        report.encode("utf-8"),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{access.project.name}_reproducibility_report.md"'},
+    )
+
+
+@router.get("/{project_id}/comparison-grid")
+def project_comparison_grid(
+    access: ReadAccess,
+    db: Db,
+    row_by: str = "language",
+    measure: str = "count",
+):
+    """Retrieve Stage 4 cross-tabulation comparison grid."""
+    from backend.app.services.measures import get_project_comparison_grid
+    return get_project_comparison_grid(db, access.project, row_by=row_by, measure=measure)
+
+
+@router.get("/{project_id}/analysis")
+def project_analysis(access: ReadAccess, db: Db):
+    """Retrieve mixed-methods linguistic measures and stats for all codes in this project."""
+    from backend.app.services.measures import get_project_analysis_summary
+    return get_project_analysis_summary(db, access.project)
+
+
+@router.get("/{project_id}/corpus-comparison")
+def project_corpus_comparison(access: ReadAccess, db: Db):
+    """Retrieve quantitative linguistic comparison between project texts and regional corpus baseline."""
+    from backend.app.services.measures import get_project_corpus_comparison
+    return get_project_corpus_comparison(db, access.project)

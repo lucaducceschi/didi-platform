@@ -46,6 +46,22 @@ def init_words_db(db_path: Optional[Path] = None) -> Path:
             ON article_words (article_id, start_char)
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS article_quotes (
+                article_id TEXT NOT NULL,
+                quote_idx INTEGER NOT NULL,
+                start_char INTEGER NOT NULL,
+                end_char INTEGER NOT NULL,
+                quote_text TEXT NOT NULL,
+                quote_type TEXT NOT NULL,
+                rule_version TEXT NOT NULL,
+                PRIMARY KEY (article_id, quote_idx)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_article_quotes_start 
+            ON article_quotes (article_id, start_char)
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS word_layer_metadata (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -179,4 +195,89 @@ def get_word_layer_summary(db_path: Path) -> Dict[str, Any]:
             "total_articles": total_articles,
             "metadata": meta,
         }
+
+
+def insert_quotes_batch(
+    db_path: Path,
+    quotes: List[Dict[str, Any]],
+) -> int:
+    """
+    Insert a batch of detected quote spans into article_quotes table.
+    Each quote dict must have:
+    article_id, quote_idx, start_char, end_char, quote_text, quote_type, rule_version
+    """
+    if not quotes:
+        return 0
+
+    tuples = [
+        (
+            q["article_id"],
+            q["quote_idx"],
+            q["start_char"],
+            q["end_char"],
+            q["quote_text"],
+            q.get("quote_type", "direct_speech"),
+            q.get("rule_version", "quote_rules_v1"),
+        )
+        for q in quotes
+    ]
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.executemany(
+            """
+            INSERT OR REPLACE INTO article_quotes 
+            (article_id, quote_idx, start_char, end_char, quote_text, quote_type, rule_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            tuples,
+        )
+        conn.commit()
+
+    return len(tuples)
+
+
+def get_article_quotes(
+    db_path: Path, article_id: str
+) -> List[Dict[str, Any]]:
+    """Retrieve all detected quotes for an article, ordered by start_char."""
+    if not db_path.exists():
+        return []
+
+    with _get_read_connection(db_path) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT article_id, quote_idx, start_char, end_char, quote_text, quote_type, rule_version
+            FROM article_quotes
+            WHERE article_id = ?
+            ORDER BY start_char ASC
+            """,
+            (article_id,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_passage_quotes(
+    db_path: Path, article_id: str, start_char: int, end_char: int
+) -> List[Dict[str, Any]]:
+    """Retrieve detected quote spans intersecting a character span [start_char:end_char]."""
+    if not db_path.exists():
+        return []
+
+    with _get_read_connection(db_path) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT article_id, quote_idx, start_char, end_char, quote_text, quote_type, rule_version
+            FROM article_quotes
+            WHERE article_id = ? 
+              AND end_char > ? 
+              AND start_char < ?
+            ORDER BY start_char ASC
+            """,
+            (article_id, start_char, end_char),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
 

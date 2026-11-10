@@ -163,6 +163,7 @@ class ProjectArticlesRemoved(BaseModel):
 class ProjectArticlesFromSearch(BaseModel):
     q: str = ""
     source: Optional[List[str]] = None
+    type: Optional[List[str]] = None
     language: Optional[List[str]] = None
 
 
@@ -179,6 +180,7 @@ class LibraryArticle(BaseModel):
     title: str
     source: Optional[str] = None
     source_label: Optional[str] = None
+    source_type: Optional[str] = "journalism"
     language: Optional[str] = None
     language_label: Optional[str] = None
     publish_date: Optional[str] = None
@@ -203,6 +205,7 @@ class LibraryResponse(BaseModel):
     results: List[LibraryArticle]
     languages: List[LibraryFacet]
     sources: List[LibraryFacet]
+    source_types: List[LibraryFacet] = []
     hidden_articles: int = 0
 
 
@@ -213,6 +216,7 @@ class Passage(BaseModel):
     article_title: str
     publish_date: Optional[str]
     source_label: Optional[str]
+    source_type: Optional[str] = "journalism"
     language: Optional[str]
     language_label: Optional[str]
     code_id: uuid.UUID
@@ -246,6 +250,7 @@ class PassagesResponse(BaseModel):
     codes: List[PassageCodeCount]
     languages: List[LibraryFacet]
     sources: List[LibraryFacet]
+    source_types: List[LibraryFacet] = []
     coders: List[PassageCoderCount]
     hidden_passages: int = 0
 
@@ -254,6 +259,7 @@ class ProjectSearchResult(BaseModel):
     id: str
     title: str
     source_label: str
+    source_type: str = "journalism"
     language_label: str
     publish_date: str
     word_count: int
@@ -319,3 +325,73 @@ class ActivityOut(OrmModel):
     action: str
     target: str
     details: Dict[str, Any]
+
+
+class SavedSelectionCreate(BaseModel):
+    name: str
+    description: str = ""
+    query_definition: Dict[str, Any] = Field(default_factory=dict)
+    article_ids: Optional[List[str]] = None
+
+
+class SavedSelectionOut(OrmModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    name: str
+    description: str
+    query_definition: Dict[str, Any]
+    article_count: int
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    user: Optional[UserBrief] = None
+
+
+class SavedSelectionDetail(SavedSelectionOut):
+    article_ids: List[str] = []
+
+
+class SelectionCompareRequest(BaseModel):
+    selection_a_id: uuid.UUID
+    selection_b_id: Optional[uuid.UUID] = None
+    partition_by: Optional[str] = None  # "language", "source", "source_type", "year"
+
+
+class KeynessTerm(BaseModel):
+    term: str
+    target_count: int
+    ref_count: int
+    target_per_1k: float = 0.0
+    ref_per_1k: float = 0.0
+    g2: float
+    direction: str  # "overused" | "underused"
+
+
+class SelectionProfileData(BaseModel):
+    id: str
+    label: str
+    article_count: int
+    total_words: int
+    dominant_language: str
+    net_sentiment: float
+    moral_density: float
+    foundations: Dict[str, float]
+    emotions: Dict[str, float]
+    readability: Dict[str, Any]
+    nominal_ratio: float
+    concreteness: float
+    ingroup_pronouns_rate: float
+    languages: Dict[str, int]
+    sources: Dict[str, int]
+    source_types: Dict[str, int]
+    timeline: List[Dict[str, Any]]
+
+
+class SelectionCompareResponse(BaseModel):
+    comparison_type: str  # "selection_vs_selection" | "selection_vs_baseline" | "partition"
+    partition_label: Optional[str] = None
+    profile_a: SelectionProfileData
+    profile_b: SelectionProfileData
+    divergence: Dict[str, Any]
+    distinctive_terms_a: List[KeynessTerm]
+    distinctive_terms_b: List[KeynessTerm]

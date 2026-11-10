@@ -27,6 +27,7 @@ function PassageCard({ passage, base, back }: { passage: Passage; base: string; 
         {passage.in_corpus ? (
           <Link to={`${base}/articles/${encodeURIComponent(passage.article_id)}?segment=${passage.id}`} state={{ back }}>{passage.article_title}</Link>
         ) : <span className="status-warn">{passage.article_title} (no longer in the corpus)</span>}
+        {passage.source_type === 'official_press' && <span className="tag">Official press</span>}
         {passage.in_corpus && ` · ${passage.publish_date} · ${passage.source_label} · ${passage.language_label}`}
         {` · ${passage.user.display_name}`}
       </p>
@@ -128,6 +129,13 @@ export function PassagesTab({ project }: { project: Project }) {
             </select>
           </label>
           <label className="field">
+            Type
+            <select value={params.get('type') ?? ''} onChange={(event) => setFilter('type', event.target.value)}>
+              <option value="">All types</option>
+              {data?.source_types?.map((facet) => <option key={facet.id} value={facet.id}>{facet.label} ({facet.count.toLocaleString()})</option>)}
+            </select>
+          </label>
+          <label className="field">
             Coder
             <select value={coder} onChange={(event) => setFilter('coder', event.target.value)}>
               <option value={EVERYONE}>Everyone</option>
@@ -142,6 +150,15 @@ export function PassagesTab({ project }: { project: Project }) {
               <option value="active">In the text</option>
               <option value="stale">To review</option>
             </select>
+          </label>
+          <label className="field" style={{ flexGrow: 1, minWidth: '160px' }}>
+            Quote filter
+            <input
+              type="search"
+              placeholder="Filter by lemma or keyword…"
+              value={params.get('q') ?? ''}
+              onChange={(event) => setFilter('q', event.target.value)}
+            />
           </label>
         </div>
 

@@ -113,6 +113,11 @@ def run_source(
                 n_fail += 1
                 continue
 
+            if src.skip_subscription and art.is_subscription_gated:
+                state.add_failure(c.url, src.id, "subscription_gated")
+                n_fail += 1
+                continue
+
             doc_id = f"{src.id}:{hashlib.sha1(c.url.encode()).hexdigest()[:16]}"
             chash, sh = content_hash(art.text), simhash(art.text)
             dup_of = state.exact_dup(chash) or state.near_dup(sh)

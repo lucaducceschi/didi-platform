@@ -40,6 +40,8 @@ def test_library_filters_and_reports_how_many_are_hidden(world):
     url = f"{world.url}/library"
     assert {a["id"] for a in world.coder.get(url, params={"language": "it"}).json()["results"]} == {"fx_it_1", "fx_it_crlf"}
     assert {a["id"] for a in world.coder.get(url, params={"source": "salto"}).json()["results"]} == {"fx_de_1", "fx_it_1", "fx_de_nfd", "fx_it_crlf", "fx_markup"}
+    assert {a["id"] for a in world.coder.get(url, params={"type": "journalism"}).json()["results"]} == {"fx_de_1", "fx_it_1", "fx_de_nfd", "fx_it_crlf", "fx_markup"}
+    assert {a["id"] for a in world.coder.get(url, params={"type": "official_press"}).json()["results"]} == set()
     done = world.coder.get(url, params={"status": "done"}).json()
     assert [a["id"] for a in done["results"]] == ["fx_it_1"] and done["total"] == 1 and done["project_total"] == 5
     # Another coder's progress doesn't count as mine.
@@ -51,8 +53,10 @@ def test_library_paginates_newest_first_with_project_wide_facets(world):
     first = world.coder.get(f"{world.url}/library", params={"page_size": 2}).json()
     second = world.coder.get(f"{world.url}/library", params={"page_size": 2, "page": 2}).json()
     assert [a["id"] for a in first["results"]] == ["fx_de_1", "fx_it_1"]
+    assert first["results"][0]["source_type"] == "journalism"
     assert [a["id"] for a in second["results"]] == ["fx_de_nfd", "fx_it_crlf"]
     assert {f["id"]: f["count"] for f in first["languages"]} == {"de": 3, "it": 2}
+    assert {f["id"]: f["count"] for f in first["source_types"]} == {"journalism": 5}
 
 
 def test_library_is_closed_to_other_projects(world):

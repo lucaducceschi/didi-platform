@@ -30,8 +30,9 @@ from src.languages import (
     get_thesaurus,
     is_language_active,
 )
-from src.sources import SOURCE_LABELS, SOURCE_REGISTRY
+from src.sources import SOURCE_LABELS, SOURCE_REGISTRY, SOURCE_TYPE_LABELS, get_source_type, get_sources_for_type
 from src.nlp.hybrid_search import HybridSearchEngine
+from src.nlp.readability import analyze_readability
 from src.ui.qdpx import build_qdpx
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "processed" / "didi_corpus.db"
@@ -88,42 +89,205 @@ class DataService:
         conn.row_factory = sqlite3.Row
         return conn
 
+    def normalize_query(self, raw_query: str) -> str:
+        """Normalize curly apostrophes, quotes, and non-breaking spaces."""
+        if not raw_query:
+            return ""
+        clean = (
+            raw_query.replace("’", "'")
+            .replace("‘", "'")
+            .replace("“", '"')
+            .replace("”", '"')
+            .replace("\u00a0", " ")
+            .strip()
+        )
+        return clean
+
     def build_fts_query(
         self,
         raw_query: str,
         expand_trilingual: bool = True,
-        enable_prefix: bool = True
+        enable_prefix: bool = True,
+        search_mode: Optional[str] = None,
     ) -> Tuple[str, Optional[str]]:
         """
-        Transform raw user input into an optimized FTS5 query.
-        Applies trilingual thesaurus expansion and automated prefix matching (*).
+        Transform raw user input into an optimized, syntax-safe FTS5 query.
+        Supports 3 explicit search modes:
+        - 'exact': exact quoted phrase / term match only (no prefix, no synonyms)
+        - 'word_family': transparent morphological prefix expansion within language
+        - 'concept': multilingual thesaurus expansion across German, Italian, Ladin
         """
-        if not raw_query or not raw_query.strip():
+        clean_q = self.normalize_query(raw_query)
+        if not clean_q:
             return "", None
 
-        clean_q = raw_query.strip()
+        # Determine effective mode (supports backwards-compatible booleans)
+        if search_mode:
+            effective_mode = search_mode.lower()
+        elif expand_trilingual:
+            effective_mode = "concept"
+        elif enable_prefix:
+            effective_mode = "word_family"
+        else:
+            effective_mode = "exact"
+
         low = clean_q.lower()
 
-        # Check trilingual concept expansion
-        if expand_trilingual and low in TRILINGUAL_THESAURUS:
+        # 1. EXACT MODE
+        if effective_mode == "exact":
+            if clean_q.startswith('"') and clean_q.endswith('"') and len(clean_q) >= 2:
+                return clean_q, "Exact quoted match active"
+            return f'"{clean_q}"', f"Exact match active for '{clean_q}'"
+
+        # 2. CONCEPT MODE: check trilingual thesaurus
+        if effective_mode == "concept" and low in TRILINGUAL_THESAURUS:
             return TRILINGUAL_THESAURUS[low], f"Trilingual Concept Expansion active for '{clean_q}' (covering DE, IT, LLD)"
 
-        # If user explicitly used quotes or boolean operators, preserve verbatim
+        # 3. WORD FAMILY MODE (or concept fallback when term not in thesaurus)
+        # If user explicitly used quotes or boolean operators, preserve verbatim safely
         if '"' in clean_q or ' OR ' in clean_q or ' AND ' in clean_q or ' NOT ' in clean_q:
             return clean_q, None
 
-        # Apply prefix wildcarding on alphanumeric words (>= 3 chars)
-        if enable_prefix:
-            tokens = clean_q.split()
-            prefixed = []
-            for t in tokens:
-                if re.match(r"^[A-Za-zÄÖÜäöüßéèàòùìëç]+$", t) and len(t) >= 3 and not t.endswith("*"):
-                    prefixed.append(t + "*")
-                else:
-                    prefixed.append(t)
-            return " ".join(prefixed), "Prefix wildcard search active (*)"
+        tokens = clean_q.split()
+        prefixed = []
+        for t in tokens:
+            # Italian elisions / contractions or hyphenated compounds
+            if "'" in t or "-" in t:
+                prefixed.append(f'"{t}"')
+            elif re.match(r"^[A-Za-zÄÖÜäöüßéèàòùìëç]+$", t) and len(t) >= 3 and not t.endswith("*"):
+                prefixed.append(t + "*")
+            else:
+                prefixed.append(t)
 
-        return clean_q, None
+        effective_q = " ".join(prefixed)
+        mode_label = (
+            "Word family prefix search active (*)"
+            if effective_mode == "word_family"
+            else f"Search active for '{clean_q}'"
+        )
+        return effective_q, mode_label
+
+    def interpret_query(
+        self,
+        raw_query: str,
+        search_mode: str = "concept",
+        sources: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
+        min_date: Optional[str] = None,
+        max_date: Optional[str] = None,
+        total_results: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Generate structured query interpretation metadata for researcher transparency.
+        """
+        clean_q = self.normalize_query(raw_query)
+        effective_fts, expansion_note = self.build_fts_query(clean_q, search_mode=search_mode)
+
+        expansion_terms = []
+        low = clean_q.lower()
+
+        if search_mode == "exact":
+            expansion_terms.append({
+                "term": f'"{clean_q}"',
+                "language": "exact",
+                "category": "exact_phrase",
+            })
+        elif search_mode == "concept" and low in TRILINGUAL_THESAURUS:
+            # Break down individual thesaurus terms
+            raw_terms = [t.strip() for t in effective_fts.split(" OR ") if t.strip()]
+            for rt in raw_terms:
+                cat = "thesaurus_expansion"
+                lang = "cross_lingual"
+                if any(x in rt for x in ["autonom", "schule", "schul", "minderheit", "wolf", "bär"]):
+                    lang = "de"
+                elif any(x in rt for x in ["scuola", "scolast", "minoranz", "lupo", "orso"]):
+                    lang = "it"
+                elif any(x in rt for x in ["scola", "cumpetënz", "lingaz", "urs"]):
+                    lang = "lld"
+                expansion_terms.append({
+                    "term": rt,
+                    "language": lang,
+                    "category": cat,
+                })
+        else:
+            tokens = clean_q.split()
+            for t in tokens:
+                if "'" in t or "-" in t:
+                    expansion_terms.append({
+                        "term": f'"{t}"',
+                        "language": "exact_token",
+                        "category": "compound_or_elision",
+                    })
+                elif len(t) >= 3 and not t.endswith("*"):
+                    expansion_terms.append({
+                        "term": t + "*",
+                        "language": "stem",
+                        "category": "prefix_wildcard",
+                    })
+                else:
+                    expansion_terms.append({
+                        "term": t,
+                        "language": "verbatim",
+                        "category": "literal",
+                    })
+
+        warnings = self.get_coverage_warnings(
+            sources=sources,
+            languages=languages,
+            min_date=min_date,
+            max_date=max_date,
+        )
+
+        return {
+            "original_query": raw_query,
+            "normalized_query": clean_q,
+            "search_mode": search_mode,
+            "effective_fts": effective_fts,
+            "expansion_terms": expansion_terms,
+            "expansion_language": "multilingual" if search_mode == "concept" else "source_language",
+            "expansion_category": expansion_note,
+            "warnings": warnings,
+            "total_results": total_results,
+            "active_filters": {
+                "sources": sources or [],
+                "languages": languages or [],
+                "source_types": source_types or [],
+                "min_date": min_date,
+                "max_date": max_date,
+            },
+        }
+
+    def get_coverage_warnings(
+        self,
+        sources: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        min_date: Optional[str] = None,
+        max_date: Optional[str] = None,
+    ) -> List[str]:
+        """Generate non-blocking corpus coverage warnings for uneven periods."""
+        warnings = []
+        eff_sources = sources or ["tageszeitung", "provinz_news", "salto"]
+
+        if min_date and min_date < "2021-07-01":
+            if "provinz_news" in eff_sources or not sources:
+                warnings.append(
+                    "Official press office coverage (Provinz News) begins in July 2021; periods prior to 2021 represent journalistic media only."
+                )
+
+        if "salto" in eff_sources:
+            if not min_date or min_date < "2025-01-01":
+                warnings.append(
+                    "Italian journalistic coverage from Salto.bz is clustered in 2026; earlier years contain sparse coverage."
+                )
+
+        if max_date and max_date > "2025-12-31":
+            if "tageszeitung" in eff_sources or not sources:
+                warnings.append(
+                    "Die Neue Südtiroler Tageszeitung archive currently spans through December 2025."
+                )
+
+        return warnings
 
     def get_corpus_summary(self, active_only: bool = False) -> Dict[str, Any]:
         """Return global counts and aggregate stats for metric cards. Includes all languages by default."""
@@ -147,7 +311,7 @@ class DataService:
                 cur.execute(f"""
                     SELECT count(*) as count
                     FROM article_nlp_metrics m
-                    JOIN articles a ON a.id = m.article_id
+                    CROSS JOIN articles a ON a.id = m.article_id
                     WHERE a.language IN ({','.join('?' for _ in active_codes)})
                 """, params)
             else:
@@ -163,6 +327,18 @@ class DataService:
             cur.execute(f"SELECT language, count(*) as count, sum(word_count) as words FROM articles {where_sql} GROUP BY language ORDER BY count DESC", params)
             totals["languages"] = {r["language"]: {"count": r["count"], "words": r["words"]} for r in cur.fetchall()}
 
+            # Counts by source_type (journalism vs official_press)
+            type_counts: Dict[str, Dict[str, int]] = {
+                "journalism": {"count": 0, "words": 0},
+                "official_press": {"count": 0, "words": 0},
+            }
+            for src_id, stats in totals["sources"].items():
+                stype = get_source_type(src_id)
+                if stype in type_counts:
+                    type_counts[stype]["count"] += stats["count"]
+                    type_counts[stype]["words"] += stats["words"]
+            totals["source_types"] = type_counts
+
             return totals
 
     def count_unconfigured_matches(
@@ -171,9 +347,11 @@ class DataService:
         sources: Optional[List[str]] = None,
     ) -> int:
         """Count articles matching query/sources whose language is unconfigured/deferred."""
-        active_codes = get_active_language_codes()
-        where_clauses: List[str] = [f"a.language NOT IN ({','.join('?' for _ in active_codes)})"]
-        params: List[Any] = list(active_codes)
+        deferred_codes = [c for c, lang in LANGUAGES.items() if not lang.active]
+        if not deferred_codes:
+            return 0
+        where_clauses: List[str] = [f"a.language IN ({','.join('?' for _ in deferred_codes)})"]
+        params: List[Any] = list(deferred_codes)
 
         has_query = bool(query and query.strip())
         if has_query:
@@ -195,6 +373,7 @@ class DataService:
         self,
         query: str = "",
         sources: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
         languages: Optional[List[str]] = None,
         min_date: Optional[str] = None,
         max_date: Optional[str] = None,
@@ -203,6 +382,7 @@ class DataService:
         min_moral: Optional[float] = None,
         expand_trilingual: bool = True,
         enable_prefix: bool = True,
+        search_mode: Optional[str] = None,
         use_hybrid: bool = True,
         active_only: bool = False,
         limit: int = 50,
@@ -220,7 +400,8 @@ class DataService:
             clean_q, expansion_note = self.build_fts_query(
                 query,
                 expand_trilingual=expand_trilingual,
-                enable_prefix=enable_prefix
+                enable_prefix=enable_prefix,
+                search_mode=search_mode,
             )
             self.last_query_expansion = expansion_note
             where_clauses.append("articles_fts MATCH ?")
@@ -228,7 +409,18 @@ class DataService:
         else:
             self.last_query_expansion = None
 
-        if sources:
+        if source_types:
+            type_sources = [s for s in SOURCE_REGISTRY.keys() if get_source_type(s) in source_types]
+            if sources:
+                effective_sources = [s for s in sources if s in type_sources]
+            else:
+                effective_sources = type_sources
+            if not effective_sources:
+                return [], 0
+            placeholders = ",".join("?" for _ in effective_sources)
+            where_clauses.append(f"a.source IN ({placeholders})")
+            params.extend(effective_sources)
+        elif sources:
             placeholders = ",".join("?" for _ in sources)
             where_clauses.append(f"a.source IN ({placeholders})")
             params.extend(sources)
@@ -270,43 +462,73 @@ class DataService:
             params.append(float(min_moral))
 
         where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+        has_metric_filters = (
+            min_sentiment is not None
+            or max_sentiment is not None
+            or (min_moral is not None and min_moral > 0)
+        )
 
         if has_query:
-            from_sql = """
-                FROM articles_fts f
-                JOIN articles a ON a.id = f.id
-                LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
-            """
+            base_from = "FROM articles_fts f JOIN articles a ON a.id = f.id"
             select_snippet = "snippet(articles_fts, 2, '<mark class=\"fts-hl\">', '</mark>', '...', 50) as snippet,"
             order_sql = "ORDER BY bm25(articles_fts, 0.0, 5.0, 1.0) ASC"
         else:
-            from_sql = """
-                FROM articles a
-                LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
-            """
+            base_from = "FROM articles a"
             select_snippet = "substr(a.full_text, 1, 350) || '...' as snippet,"
             order_sql = "ORDER BY a.publish_date DESC"
 
-        count_query = f"SELECT count(*) as total {from_sql} {where_sql}"
-        data_query = f"""
-            SELECT 
-                a.id, a.source, a.language, a.url, a.title, a.publish_date, a.author, a.category,
-                a.word_count, a.full_text, {select_snippet}
-                m.net_sentiment, m.ttr, m.root_ttr, m.mean_sentence_length,
-                m.anger_density, m.anticipation_density, m.disgust_density, m.fear_density,
-                m.joy_density, m.sadness_density, m.surprise_density, m.trust_density,
-                m.care_density, m.fairness_density, m.loyalty_density, m.authority_density, m.sanctity_density,
-                m.care_virtue_density, m.care_vice_density,
-                m.fairness_virtue_density, m.fairness_vice_density,
-                m.loyalty_virtue_density, m.loyalty_vice_density,
-                m.authority_virtue_density, m.authority_vice_density,
-                m.sanctity_virtue_density, m.sanctity_vice_density,
-                m.moral_density, m.moral_valence
-            {from_sql}
-            {where_sql}
-            {order_sql}
-            LIMIT ? OFFSET ?
-        """
+        count_from = (
+            f"{base_from} LEFT JOIN article_nlp_metrics m ON m.article_id = a.id"
+            if has_metric_filters
+            else base_from
+        )
+        data_from = f"{base_from} LEFT JOIN article_nlp_metrics m ON m.article_id = a.id"
+
+        count_query = f"SELECT count(*) as total {count_from} {where_sql}"
+        if not has_query and not has_metric_filters:
+            data_query = f"""
+                SELECT 
+                    a.id, a.source, a.language, a.url, a.title, a.publish_date, a.author, a.category,
+                    a.word_count, a.full_text, {select_snippet}
+                    m.net_sentiment, m.ttr, m.root_ttr, m.mean_sentence_length,
+                    m.anger_density, m.anticipation_density, m.disgust_density, m.fear_density,
+                    m.joy_density, m.sadness_density, m.surprise_density, m.trust_density,
+                    m.care_density, m.fairness_density, m.loyalty_density, m.authority_density, m.sanctity_density,
+                    m.care_virtue_density, m.care_vice_density,
+                    m.fairness_virtue_density, m.fairness_vice_density,
+                    m.loyalty_virtue_density, m.loyalty_vice_density,
+                    m.authority_virtue_density, m.authority_vice_density,
+                    m.sanctity_virtue_density, m.sanctity_vice_density,
+                    m.moral_density, m.moral_valence
+                FROM (
+                    SELECT * FROM articles AS a INDEXED BY idx_articles_date
+                    {where_sql}
+                    ORDER BY a.publish_date DESC
+                    LIMIT ? OFFSET ?
+                ) a
+                LEFT JOIN article_nlp_metrics m ON m.article_id = a.id
+                ORDER BY a.publish_date DESC
+            """
+        else:
+            data_query = f"""
+                SELECT 
+                    a.id, a.source, a.language, a.url, a.title, a.publish_date, a.author, a.category,
+                    a.word_count, a.full_text, {select_snippet}
+                    m.net_sentiment, m.ttr, m.root_ttr, m.mean_sentence_length,
+                    m.anger_density, m.anticipation_density, m.disgust_density, m.fear_density,
+                    m.joy_density, m.sadness_density, m.surprise_density, m.trust_density,
+                    m.care_density, m.fairness_density, m.loyalty_density, m.authority_density, m.sanctity_density,
+                    m.care_virtue_density, m.care_vice_density,
+                    m.fairness_virtue_density, m.fairness_vice_density,
+                    m.loyalty_virtue_density, m.loyalty_vice_density,
+                    m.authority_virtue_density, m.authority_vice_density,
+                    m.sanctity_virtue_density, m.sanctity_vice_density,
+                    m.moral_density, m.moral_valence
+                {data_from}
+                {where_sql}
+                {order_sql}
+                LIMIT ? OFFSET ?
+            """
 
         with self._get_connection() as conn:
             cur = conn.cursor()
@@ -357,7 +579,244 @@ class DataService:
                     else:
                         self.last_query_expansion = "🧠 Hybrid Semantic Fusion active (BM25 + Multilingual MiniLM)"
 
+            for r in rows:
+                r["source_type"] = get_source_type(r["source"])
             return rows, total_count
+
+    def compile_query_regex(self, interp: Dict[str, Any]) -> Optional[re.Pattern]:
+        """Compile regex pattern matching the query terms according to search mode."""
+        clean = interp.get("normalized_query", "").strip()
+        mode = interp.get("search_mode", "word_family")
+        terms = interp.get("expansion_terms", [])
+        if mode == "exact":
+            return re.compile(re.escape(clean), re.IGNORECASE) if clean else None
+
+        patterns = []
+        for item in terms:
+            t = item["term"].strip().strip('"')
+            if not t:
+                continue
+            if t.endswith("*"):
+                stem = t[:-1]
+                patterns.append(r"\b" + re.escape(stem) + r"\w*")
+            else:
+                patterns.append(r"\b" + re.escape(t) + r"\b")
+
+        if not patterns and clean:
+            tokens = clean.split()
+            for tok in tokens:
+                if len(tok) >= 3:
+                    patterns.append(r"\b" + re.escape(tok) + r"\w*")
+                else:
+                    patterns.append(r"\b" + re.escape(tok) + r"\b")
+
+        if not patterns:
+            return None
+        return re.compile(r"(?:" + "|".join(patterns) + r")", re.IGNORECASE)
+
+    def get_concordance(
+        self,
+        query: str,
+        search_mode: str = "word_family",
+        sources: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        min_date: Optional[str] = None,
+        max_date: Optional[str] = None,
+        window_size: int = 50,
+        page: int = 1,
+        page_size: int = 50,
+        active_only: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Extract KWIC (Key Word In Context) concordance lines with exact character offsets.
+        Enforces coordinate system: document ID + [start_char, end_char].
+        """
+        if not query or not query.strip():
+            return {
+                "total_lines": 0,
+                "total_articles": 0,
+                "page": page,
+                "page_size": page_size,
+                "items": [],
+            }
+
+        interp = self.interpret_query(
+            raw_query=query,
+            search_mode=search_mode,
+            sources=sources,
+            languages=languages,
+            source_types=source_types,
+            min_date=min_date,
+            max_date=max_date,
+        )
+        rx = self.compile_query_regex(interp)
+        if not rx:
+            return {
+                "total_lines": 0,
+                "total_articles": 0,
+                "page": page,
+                "page_size": page_size,
+                "items": [],
+            }
+
+        target_skip = (page - 1) * page_size
+        needed_lines = target_skip + page_size
+
+        article_batch_size = 50
+        article_offset = 0
+        all_lines: List[Dict[str, Any]] = []
+        total_matching_articles = 0
+        total_occurrences = 0
+
+        while len(all_lines) < needed_lines:
+            articles, batch_total = self.search_articles(
+                query=query,
+                search_mode=search_mode,
+                sources=sources,
+                source_types=source_types,
+                languages=languages,
+                min_date=min_date,
+                max_date=max_date,
+                use_hybrid=False,
+                active_only=active_only,
+                limit=article_batch_size,
+                offset=article_offset,
+            )
+            total_matching_articles = batch_total
+            if not articles:
+                break
+
+            for a in articles:
+                text = a.get("full_text") or ""
+                for m in rx.finditer(text):
+                    total_occurrences += 1
+                    s, e = m.span()
+                    left = text[max(0, s - window_size):s].replace("\n", " ").strip()
+                    kw = text[s:e]
+                    right = text[e:min(len(text), e + window_size)].replace("\n", " ").strip()
+                    all_lines.append({
+                        "article_id": a["id"],
+                        "title": a["title"],
+                        "source": a["source"],
+                        "source_label": SOURCE_LABELS.get(a["source"], a["source"]),
+                        "source_type": get_source_type(a["source"]),
+                        "language": a["language"],
+                        "language_label": LANGUAGE_LABELS.get(a["language"], a["language"]),
+                        "publish_date": a["publish_date"],
+                        "start_char": s,
+                        "end_char": e,
+                        "left_context": left,
+                        "keyword": kw,
+                        "right_context": right,
+                    })
+
+            article_offset += len(articles)
+            if article_offset >= batch_total:
+                break
+
+        page_items = all_lines[target_skip : target_skip + page_size]
+        return {
+            "total_lines": total_occurrences,
+            "total_articles": total_matching_articles,
+            "page": page,
+            "page_size": page_size,
+            "items": page_items,
+        }
+
+    def get_search_distribution(
+        self,
+        query: str = "",
+        search_mode: str = "word_family",
+        sources: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        min_date: Optional[str] = None,
+        max_date: Optional[str] = None,
+        active_only: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Compute faceted breakdown of matching articles by language, source, source_type, and year.
+        """
+        has_query = bool(query and query.strip())
+        params: List[Any] = []
+        where_clauses: List[str] = []
+
+        if has_query:
+            clean_q, _ = self.build_fts_query(query, search_mode=search_mode)
+            where_clauses.append("articles_fts MATCH ?")
+            params.append(clean_q)
+
+        if source_types:
+            type_sources = [s for s in SOURCE_REGISTRY.keys() if get_source_type(s) in source_types]
+            effective_sources = [s for s in (sources or type_sources) if s in type_sources]
+            if not effective_sources:
+                return {"total": 0, "by_language": {}, "by_source": {}, "by_source_type": {}, "by_year": {}}
+            placeholders = ",".join("?" for _ in effective_sources)
+            where_clauses.append(f"a.source IN ({placeholders})")
+            params.extend(effective_sources)
+        elif sources:
+            placeholders = ",".join("?" for _ in sources)
+            where_clauses.append(f"a.source IN ({placeholders})")
+            params.extend(sources)
+
+        active_codes = get_active_language_codes()
+        effective_langs = [l for l in (languages or active_codes) if l in active_codes] if active_only else languages
+        if effective_langs:
+            placeholders = ",".join("?" for _ in effective_langs)
+            where_clauses.append(f"a.language IN ({placeholders})")
+            params.extend(effective_langs)
+
+        if min_date:
+            where_clauses.append("a.publish_date >= ?")
+            params.append(min_date)
+        if max_date:
+            where_clauses.append("a.publish_date <= ?")
+            params.append(max_date)
+
+        where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+        from_sql = "FROM articles_fts f JOIN articles a ON a.id = f.id" if has_query else "FROM articles a"
+
+        sql = f"""
+            SELECT 
+                a.language,
+                a.source,
+                substr(a.publish_date, 1, 4) as year,
+                count(*) as count
+            {from_sql}
+            {where_sql}
+            GROUP BY a.language, a.source, year
+        """
+
+        by_language: Dict[str, int] = {}
+        by_source: Dict[str, int] = {}
+        by_source_type: Dict[str, int] = {}
+        by_year: Dict[str, int] = {}
+        total = 0
+
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(sql, params)
+            for r in cur.fetchall():
+                lang = r["language"]
+                src = r["source"]
+                yr = r["year"] or "unknown"
+                cnt = r["count"]
+                stype = get_source_type(src)
+
+                total += cnt
+                by_language[lang] = by_language.get(lang, 0) + cnt
+                by_source[src] = by_source.get(src, 0) + cnt
+                by_source_type[stype] = by_source_type.get(stype, 0) + cnt
+                by_year[yr] = by_year.get(yr, 0) + cnt
+
+        return {
+            "total": total,
+            "by_language": dict(sorted(by_language.items())),
+            "by_source": dict(sorted(by_source.items(), key=lambda x: x[1], reverse=True)),
+            "by_source_type": dict(sorted(by_source_type.items())),
+            "by_year": dict(sorted(by_year.items())),
+        }
 
     def export_filtered_dataset(
         self,
@@ -441,6 +900,7 @@ class DataService:
         self,
         query: str = "",
         sources: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
         languages: Optional[List[str]] = None,
         active_only: bool = False,
     ) -> List[str]:
@@ -452,7 +912,17 @@ class DataService:
             fts_query, _ = self.build_fts_query(query)
             where_clauses.append("articles_fts MATCH ?")
             params.append(fts_query)
-        if sources:
+        if source_types:
+            type_sources = [s for s in SOURCE_REGISTRY.keys() if get_source_type(s) in source_types]
+            if sources:
+                effective_sources = [s for s in sources if s in type_sources]
+            else:
+                effective_sources = type_sources
+            if not effective_sources:
+                return []
+            where_clauses.append(f"a.source IN ({','.join('?' for _ in effective_sources)})")
+            params.extend(effective_sources)
+        elif sources:
             where_clauses.append(f"a.source IN ({','.join('?' for _ in sources)})")
             params.extend(sources)
         active_codes = get_active_language_codes()
@@ -483,12 +953,23 @@ class DataService:
                 batch = ids[index : index + 500]
                 rows = conn.execute(
                     f"""
-                    SELECT id, source, language, url, title, publish_date, author, word_count
+                    SELECT id, source, language, url, title, publish_date, author, word_count, metadata_json
                     FROM articles WHERE id IN ({','.join('?' for _ in batch)})
                     """,
                     batch,
                 )
-                found.update({row["id"]: dict(row) for row in rows})
+                for row in rows:
+                    d = dict(row)
+                    d["source_type"] = get_source_type(d["source"])
+                    if "metadata_json" in d:
+                        try:
+                            meta = json.loads(d.pop("metadata_json") or "{}")
+                            d["metadata"] = meta
+                            d["twin_article_id"] = meta.get("twin_article_id")
+                        except Exception:
+                            d["metadata"] = {}
+                            d["twin_article_id"] = None
+                    found[d["id"]] = d
         return found
 
     def get_article_texts(self, article_ids: List[str]) -> Dict[str, str]:
@@ -695,10 +1176,28 @@ class DataService:
             if not row:
                 return None
             d = dict(row)
+            d["source_type"] = get_source_type(d["source"])
             if d.get("breadcrumbs_json"):
                 d["breadcrumbs"] = json.loads(d["breadcrumbs_json"])
             if d.get("metadata_json"):
                 d["metadata"] = json.loads(d["metadata_json"])
+                d["twin_article_id"] = d["metadata"].get("twin_article_id")
+            else:
+                d["twin_article_id"] = None
+
+            # Compute readability metrics dynamically if full text is available
+            if d.get("full_text"):
+                rb = analyze_readability(d["full_text"], language=d.get("language", "de"))
+                d["readability_score"] = rb.score
+                d["readability_metric"] = rb.primary_metric
+                d["readability_grade"] = rb.grade_level
+                d["lix"] = rb.lix
+            else:
+                d["readability_score"] = None
+                d["readability_metric"] = None
+                d["readability_grade"] = None
+                d["lix"] = None
+
             return d
 
     def get_article_words(self, article_id: str) -> List[Dict[str, Any]]:
@@ -710,6 +1209,16 @@ class DataService:
         """Retrieve word layer tokens covering or intersecting a text span [start_char:end_char]."""
         from src.storage.word_layer import get_passage_words as _get_passage
         return _get_passage(self.words_db_path, article_id, start_char, end_char)
+
+    def get_article_quotes(self, article_id: str) -> List[Dict[str, Any]]:
+        """Retrieve detected quote spans for an article, ordered by start_char."""
+        from src.storage.word_layer import get_article_quotes as _get_quotes
+        return _get_quotes(self.words_db_path, article_id)
+
+    def get_passage_quotes(self, article_id: str, start_char: int, end_char: int) -> List[Dict[str, Any]]:
+        """Retrieve detected quote spans covering or intersecting a text span [start_char:end_char]."""
+        from src.storage.word_layer import get_passage_quotes as _get_passage_quotes
+        return _get_passage_quotes(self.words_db_path, article_id, start_char, end_char)
 
     def get_aggregated_radar_data(
         self,
@@ -728,8 +1237,8 @@ class DataService:
 
         sql = f"""
             SELECT a.language, COUNT(*) as article_count, {agg_exprs_str}
-            FROM articles a
-            JOIN article_nlp_metrics m ON a.id = m.article_id
+            FROM article_nlp_metrics m
+            CROSS JOIN articles a ON a.id = m.article_id
             WHERE 1=1
         """
         params = []
@@ -855,12 +1364,14 @@ class DataService:
     def compute_cross_lingual_moral_divergence(
         self,
         query: str = "",
-        sources: Optional[List[str]] = None
+        sources: Optional[List[str]] = None,
+        radar_df: Optional[pd.DataFrame] = None,
     ) -> Dict[str, Any]:
         """
         Calculate pairwise Jensen-Shannon Moral Divergence across DE, IT, and LLD.
         """
-        radar_df = self.get_aggregated_radar_data(query=query, sources=sources)
+        if radar_df is None:
+            radar_df = self.get_aggregated_radar_data(query=query, sources=sources)
         if radar_df.empty:
             return {}
 

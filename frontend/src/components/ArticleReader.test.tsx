@@ -37,4 +37,20 @@ describe('ArticleReader', () => {
     fireEvent.click(screen.getByText('cd'))
     expect(onSelect).toHaveBeenCalledWith(['m', 'o'])
   })
+
+  it('calls onCancelSelection and removes range when Escape is pressed', () => {
+    const onCancel = vi.fn()
+    render(
+      <ArticleReader
+        text="abcdefghij"
+        highlights={[]}
+        selectedIds={[]}
+        pending={{ start: 2, end: 5 }}
+        onSelect={() => {}}
+        onCancelSelection={onCancel}
+      />,
+    )
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
 })

@@ -1,6 +1,18 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { type LibraryArticle, type LibraryFilters, type MyStatus, type Project, getLibrary, removeArticle, removeUnstartedArticles } from '../../api'
+import {
+  type LibraryArticle,
+  type LibraryFilters,
+  type MyStatus,
+  type Project,
+  type SavedSelection,
+  deleteSelection,
+  getLibrary,
+  listSelections,
+  refreshSelection,
+  removeArticle,
+  removeUnstartedArticles,
+} from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ErrorMessage } from '../../components/Message'
 import { useAction } from '../../useAction'
@@ -17,6 +29,7 @@ function readFilters(params: URLSearchParams): LibraryFilters {
   return {
     languages: params.getAll('language'),
     sources: params.getAll('source'),
+    types: params.getAll('type'),
     status: status === 'not_started' || status === 'in_progress' || status === 'done' ? status : '',
     page: Math.max(1, Number(params.get('page')) || 1),
   }
@@ -43,13 +56,16 @@ export function LibraryTab({ project }: { project: Project }) {
   const [params, setParams] = useSearchParams()
   const filters = readFilters(params)
   const { data, error, loading, reload } = useApi((signal) => getLibrary(project.id, filters, signal), `${project.id}?${params}`)
+  const selections = useApi((signal) => listSelections(project.id, signal), project.id)
   const removal = useAction()
+  const selectionAction = useAction()
+  const [showSelections, setShowSelections] = useState(false)
   const [removing, setRemoving] = useState<LibraryArticle | null>(null)
   const [removingUnstarted, setRemovingUnstarted] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const base = `/projects/${project.id}/articles`
 
-  const setFilter = (name: 'language' | 'source' | 'status', value: string) => {
+  const setFilter = (name: 'language' | 'source' | 'type' | 'status', value: string) => {
     const next = new URLSearchParams(params)
     next.delete(name)
     next.delete('page')
@@ -87,6 +103,23 @@ export function LibraryTab({ project }: { project: Project }) {
       reload()
     })
   }
+
+  const handleRefreshSelection = (sel: SavedSelection) => {
+    void selectionAction.run(async () => {
+      const updated = await refreshSelection(project.id, sel.id)
+      setNotice(`Refreshed snapshot for "${sel.name}": now holds ${updated.article_count.toLocaleString()} articles.`)
+      selections.reload()
+    })
+  }
+
+  const handleDeleteSelection = (sel: SavedSelection) => {
+    if (!confirm(`Delete saved selection "${sel.name}"? Articles in the project will remain.`)) return
+    void selectionAction.run(async () => {
+      await deleteSelection(project.id, sel.id)
+      setNotice(`Deleted selection "${sel.name}".`)
+      selections.reload()
+    })
+  }
   const lastPage = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1
   const hidden = data ? data.project_total - data.total : 0
 
@@ -108,6 +141,13 @@ export function LibraryTab({ project }: { project: Project }) {
           </select>
         </label>
         <label className="field">
+          Type
+          <select value={filters.types[0] ?? ''} onChange={(event) => setFilter('type', event.target.value)}>
+            <option value="">All types</option>
+            {data?.source_types?.map((facet) => <option key={facet.id} value={facet.id}>{facet.label} ({facet.count.toLocaleString()})</option>)}
+          </select>
+        </label>
+        <label className="field">
           My status
           <select value={filters.status} onChange={(event) => setFilter('status', event.target.value)}>
             <option value="">Any status</option>
@@ -116,6 +156,103 @@ export function LibraryTab({ project }: { project: Project }) {
         </label>
         {canAdd && <Link to={`${base}/add`} className="button-link">Add articles</Link>}
       </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={() => setShowSelections((prev) => !prev)}
+          className="button-quiet"
+          style={{ fontSize: '12px', padding: '4px 8px' }}
+        >
+          {showSelections ? 'Hide Selections ▲' : `📁 Saved Selections (${selections.data?.length ?? 0}) ▼`}
+        </button>
+      </div>
+
+      {showSelections && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', margin: '6px 0 12px' }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)' }}>
+            Saved Corpus Selections
+          </h3>
+          {selections.loading ? (
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Loading selections…</p>
+          ) : selections.data && selections.data.length === 0 ? (
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
+              No saved selections in this project yet. Use "Save Selection…" from Search to create one.
+            </p>
+          ) : selections.data ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {selections.data.map((sel) => {
+                const hasQuery = Boolean(sel.query_definition && Object.keys(sel.query_definition).length > 0)
+                return (
+                  <div
+                    key={sel.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 12px',
+                      background: 'var(--canvas-subtle, rgba(0,0,0,0.02))',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      gap: '12px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ fontSize: '13px' }}>{sel.name}</strong>
+                        <span className="tag" style={{ margin: 0, fontSize: '11px', padding: '1px 6px' }}>
+                          {sel.article_count.toLocaleString()} articles
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            color: hasQuery ? 'var(--accent, #3182ce)' : 'var(--muted)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {hasQuery ? '⚡ Dynamic Query' : '📌 Frozen Set'}
+                        </span>
+                      </div>
+                      {sel.description && (
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--muted)' }}>{sel.description}</p>
+                      )}
+                      <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+                        Updated {sel.updated_at.slice(0, 10)}
+                        {sel.user ? ` · by ${sel.user.display_name}` : ''}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {hasQuery && (
+                        <button
+                          type="button"
+                          className="button-quiet"
+                          onClick={() => handleRefreshSelection(sel)}
+                          disabled={selectionAction.busy}
+                          style={{ fontSize: '11px', padding: '3px 8px' }}
+                          title="Re-materialize snapshot against updated corpus"
+                        >
+                          🔄 Refresh
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="button-quiet"
+                        onClick={() => handleDeleteSelection(sel)}
+                        disabled={selectionAction.busy}
+                        style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--error, #e53e3e)' }}
+                        title="Delete selection object (articles stay in project)"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      )}
 
       <ErrorMessage error={error ?? removal.error} />
       {notice && <p className="message" role="status">{notice}</p>}
@@ -151,6 +288,7 @@ export function LibraryTab({ project }: { project: Project }) {
             <h2>{article.in_corpus ? <Link to={`${base}/${encodeURIComponent(article.id)}`}>{article.title}</Link> : article.title}</h2>
             {article.in_corpus ? (
               <p className="result-meta">
+                {article.source_type === 'official_press' && <span className="tag">Official press</span>}
                 {article.publish_date} · {article.source_label} · {article.language_label} · {(article.word_count ?? 0).toLocaleString()} words · You: {STATUS_LABELS[article.my_status]}
               </p>
             ) : <p className="result-meta status-warn">This article is no longer in the corpus. Its segments are kept and marked for review.</p>}

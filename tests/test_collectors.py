@@ -211,3 +211,44 @@ def test_pipeline_run_saves_raw_pages_and_records(setup):
     raw_path = data / "raw" / "collected" / "ex" / "pages" / f"{r['raw_sha256']}.html.gz"
     assert raw_path.exists()
 
+
+def test_extract_detects_subscription_cta_and_decomposes_banner():
+    sample_html = """
+    <html>
+      <head><title>Test Article</title></head>
+      <body>
+        <h1>Test Title</h1>
+        <div class="cta-free-article">
+          <p>Dieser Artikel ist für dich kostenlos. Unabhängiger Journalismus braucht deine Unterstützung.</p>
+          <a href="#">Jetzt S+ abonnieren</a>
+        </div>
+        <div class="content">
+          <p>This is the first main paragraph with sufficient length and context for extraction.</p>
+          <p>This is the second main paragraph discussing regional governance in South Tyrol.</p>
+          <p>This is the third main paragraph providing critical analysis and research perspectives.</p>
+        </div>
+      </body>
+    </html>
+    """
+    art = extract(sample_html, "https://salto.bz/it/article/123/test")
+    assert art.is_accessible_for_free is False
+    assert "Jetzt S+ abonnieren" not in art.text
+    assert "Dieser Artikel ist für dich kostenlos" not in art.text
+
+
+def test_pipeline_skips_subscription_gated_articles(setup, monkeypatch):
+    src, reg, data = setup
+    gated_html = fx("article_jsonld.html") + """
+    <div class="cta-free-article">Jetzt S+ abonnieren</div>
+    """
+    orig_pages = dict(FakeHTTP.pages)
+    orig_pages["https://example.it/notizie/a"] = gated_html
+    monkeypatch.setattr(FakeHTTP, "pages", orig_pages)
+    since, until = datetime(2026, 10, 1, tzinfo=UTC), datetime(2026, 12, 31, tzinfo=UTC)
+    s = pipeline.run_source(src, reg, data, "run_gated", since, until)
+    assert s["written"] == 0
+    state = State(data)
+    failures = state.failures()
+    assert any(f["reason"] == "subscription_gated" for f in failures)
+
+
