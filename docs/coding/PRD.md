@@ -1,5 +1,7 @@
 # PRD: DIDI Annotation Workbench (Phase 3.1)
 
+**On hold since 2026-11-18 (review around 2026-12-18):** no new coding features until colleagues' feedback is in. Some use f4 and some NVivo, and which tool they will prefer is unknown. What is built stays and keeps working. See [`../PRD.md`](../PRD.md), Section 7.
+
 **Status:** Tasks 0–4 built. Updated 2026-11-07. Since 2026-11-07 the platform covers German and Italian only, and Ladin is deferred: see [`../PRD.md`](../PRD.md), Section 2. Ladin mentions below record how Tasks 0–4 were built and tested.
 
 **Goal:** Turn DIDI from a Streamlit demo into a web app where different researchers run their own annotation work on the shared corpus, as researchers do in the Speech Workbench, without needing a MAXQDA licence and with all data exportable.

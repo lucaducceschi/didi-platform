@@ -133,6 +133,8 @@ Each phase gets its own task prompt in `docs/coding/prompts/` before work starts
 | **7. Assisted coding** | Starts with **TF-IDF / BM25 suggestions** from existing coded examples, uncertainty sampling queue (Accept/Reject/Refine), and explicitly records whether an accepted suggestion counts as human coding. | Scales qualitative coding with human oversight | Phases 3 and 4, enough coded data |
 | **8. Hosting** | Where it runs, logins, backups, and whether full text may be served to 10 users or sent to a model | Needed before researchers use it from their own computers | A decision by Luca and Eurac |
 
+**On hold since 2026-11-18 (review around 2026-12-18):** qualitative coding. That covers Phases 6 and 7, QDPX exchange and new annotation workbench features. Colleagues' feedback on their tools (f4, NVivo) is expected in about a month. Built coding features stay and keep working; work continues on the corpus and quantitative side.
+
 **Later, not yet planned:** networks of people and issues (called co-occurrence, after merging name variants), which language community leads an issue / agenda lead-lag analysis (only once there's a comparable Italian corpus), more corpora (the remaining Salto articles, the official press, another Italian source, paywalled dailies), provenance checks for them, topic models across languages, QDPX export of coded segments and import, audio, porting the remaining Streamlit views and retiring Streamlit.
 
 ### Ladin: returning later
